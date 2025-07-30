@@ -1,0 +1,72 @@
+# .clang-format for Acronis C++ Code Guidelines (updated with user preferences)
+
+BasedOnStyle: LLVM
+
+ColumnLimit: 120
+
+# === Indentation ===
+UseTab: Never
+IndentWidth: 2
+TabWidth: 2
+ContinuationIndentWidth: 2
+AccessModifierOffset: -2  # public/private/protected not indented inside class
+IndentPPDirectives: BeforeHash
+
+# === Braces ===
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true   # places brace on a new line for if/for/while/switch
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# === Short Statements ===
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+InsertBraces: false  # Allows omission only if one-liner and consistent
+
+# === Spaces ===
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceBeforeInheritanceColon: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+
+# === Line Breaks ===
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: false
+BreakStringLiterals: false
+
+# === Pointers and References ===
+PointerAlignment: Left
+
+# === Enums and Initialization Lists ===
+AllowShortEnumsOnASingleLine: false
+ConstructorInitializerIndentWidth: 2
+
+# === Misc ===
+KeepEmptyLinesAtTheStartOfBlocks: false
+NamespaceIndentation: All
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+ReflowComments: true
+SortIncludes: false
