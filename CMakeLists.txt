@@ -20,6 +20,16 @@ else()
     add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
 
+# Set up OpenSSL
+find_package(OpenSSL REQUIRED)
+# Set up nghttp2
+set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(ENABLE_HPACK_TOOLS OFF CACHE BOOL "" FORCE)
+set(ENABLE_APP OFF CACHE BOOL "" FORCE)
+set(ENABLE_STATIC_LIB ON CACHE BOOL "" FORCE)
+set(ENABLE_SHARED_LIB OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/nghttp2)
+
 add_subdirectory(lib)
 add_subdirectory(tests)
 add_subdirectory(competitors)
