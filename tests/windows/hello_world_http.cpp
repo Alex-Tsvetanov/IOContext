@@ -1,197 +1,325 @@
-#define UNICODE
-#include <WinSock2.h>
-#include <Windows.h>
-#include <MSWSock.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <vector>
-#include <string>
-#include <thread>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <mswsock.h>
+#include <ws2tcpip.h>
 #include <iostream>
+#include <thread>
+#include <vector>
+#include <chrono>
+#include <memory>
+#include <atomic>
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
 
-#define PORT 8080
-#define BUFFER_SIZE 2048
+using namespace std::chrono;
 
-struct PER_HANDLE_DATA
+constexpr int PORT = 8080;
+constexpr int READ_BUF_SIZE = 4096;
+constexpr int WRITE_BUF_SIZE = 4096;
+constexpr int MAX_KEEPALIVE_REQUESTS = 100;
+constexpr int KEEPALIVE_TIMEOUT_MS = 5000;
+constexpr int MAX_PENDING_ACCEPTS = 128;
+
+enum class ConnState
 {
-  SOCKET socket;
-  SOCKADDR_IN clientAddr;
+  ReadingHeaders,
+  Writing,
+  Closing
 };
 
-struct PER_IO_DATA
+enum class IoOperation
 {
-  OVERLAPPED overlapped;
-  WSABUF wsaBuf;
-  char buffer[BUFFER_SIZE];
-  int operation;
+  Accept,
+  Read,
+  Write
 };
 
-enum
+struct Connection;
+
+struct PerIoContext
 {
-  OP_READ,
-  OP_WRITE
+  OVERLAPPED overlapped{};
+  WSABUF wsaBuf{};
+  IoOperation op;
+  Connection* conn;
+  char buffer[READ_BUF_SIZE];
 };
 
-static const char response[] = "HTTP/1.1 200 OK\r\n"
-                               "Content-Type: text/plain\r\n"
-                               "Content-Length: 12\r\n"
-                               "\r\n"
-                               "Hello World!";
-
-DWORD WINAPI WorkerThread(LPVOID completionPortID)
+struct Connection
 {
-  HANDLE completionPort = (HANDLE) completionPortID;
-  DWORD bytesTransferred;
-  ULONG_PTR completionKey;
-  PER_IO_DATA* ioData;
-  PER_HANDLE_DATA* handleData;
+  SOCKET fd = INVALID_SOCKET;
+  ConnState state = ConnState::ReadingHeaders;
 
-  while (true)
+  alignas(64) char read_buf[READ_BUF_SIZE];
+  size_t read_len = 0;
+
+  alignas(64) char write_buf[WRITE_BUF_SIZE];
+  size_t write_len = 0;
+  size_t write_offset = 0;
+
+  int requests_served = 0;
+  steady_clock::time_point last_active{steady_clock::now()};
+
+  PerIoContext readCtx{};
+  PerIoContext writeCtx{};
+
+  void init(SOCKET s)
   {
-    BOOL status =
-      GetQueuedCompletionStatus(completionPort, &bytesTransferred, &completionKey, (LPOVERLAPPED*) &ioData, INFINITE);
+    fd = s;
+    state = ConnState::ReadingHeaders;
+    read_len = write_len = write_offset = 0;
+    last_active = steady_clock::now();
 
-    handleData = (PER_HANDLE_DATA*) completionKey;
+    // Prepare IO contexts
+    ZeroMemory(&readCtx.overlapped, sizeof(OVERLAPPED));
+    ZeroMemory(&writeCtx.overlapped, sizeof(OVERLAPPED));
+    readCtx.conn = this;
+    writeCtx.conn = this;
+    readCtx.op = IoOperation::Read;
+    writeCtx.op = IoOperation::Write;
+  }
 
-    if (bytesTransferred == 0 && ioData == NULL)
-      break;
+  void prepare_response()
+  {
+    const char body[] = "Hello, World!\n";
 
-    if (!status || bytesTransferred == 0)
+    std::string header = "HTTP/1.1 200 OK\r\n"
+                         "Content-Type: text/plain\r\n"
+                         "Content-Length: 14\r\n";
+
+    bool keep_alive = (requests_served < MAX_KEEPALIVE_REQUESTS);
+    if (keep_alive)
+      header += "Connection: keep-alive\r\n\r\n";
+    else
+      header += "Connection: close\r\n\r\n";
+
+    size_t header_len = header.size();
+    memcpy(write_buf, header.data(), header_len);
+    memcpy(write_buf + header_len, body, sizeof(body) - 1);
+
+    write_len = header_len + sizeof(body) - 1;
+    write_offset = 0;
+    state = ConnState::Writing;
+  }
+
+  void reset_for_next_request()
+  {
+    read_len = 0;
+    write_len = 0;
+    write_offset = 0;
+    state = ConnState::ReadingHeaders;
+    last_active = steady_clock::now();
+    ++requests_served;
+  }
+
+  void close_conn()
+  {
+    if (fd != INVALID_SOCKET)
     {
-      closesocket(handleData->socket);
-      delete handleData;
-      delete ioData;
-      continue;
-    }
-
-    switch (ioData->operation)
-    {
-    case OP_READ: {
-      ZeroMemory(&ioData->overlapped, sizeof(OVERLAPPED));
-      ioData->operation = OP_WRITE;
-      ioData->wsaBuf.buf = const_cast<char*>(response);
-      ioData->wsaBuf.len = sizeof(response) - 1;
-      WSASend(handleData->socket, &ioData->wsaBuf, 1, NULL, 0, &ioData->overlapped, NULL);
-      break;
-    }
-
-    case OP_WRITE: {
-      shutdown(handleData->socket, SD_SEND);
-      closesocket(handleData->socket);
-      delete handleData;
-      delete ioData;
-      break;
-    }
+      closesocket(fd);
+      fd = INVALID_SOCKET;
     }
   }
-  return 0;
+};
+
+// Simple substring search for \r\n\r\n
+bool has_double_crlf(const char* buf, size_t len)
+{
+  for (size_t i = 0; i + 3 < len; ++i)
+  {
+    if (buf[i] == '\r' && buf[i + 1] == '\n' && buf[i + 2] == '\r' && buf[i + 3] == '\n')
+      return true;
+  }
+  return false;
 }
+
+class IocpServer
+{
+public:
+  IocpServer()
+  {
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+  }
+
+  ~IocpServer() { WSACleanup(); }
+
+  bool start()
+  {
+    listen_fd = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+    if (listen_fd == INVALID_SOCKET)
+    {
+      std::cerr << "Failed to create listen socket\n";
+      return false;
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(PORT);
+
+    int opt = 1;
+    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (char*) &opt, sizeof(opt));
+
+    if (bind(listen_fd, (sockaddr*) &addr, sizeof(addr)) == SOCKET_ERROR)
+    {
+      std::cerr << "Bind failed\n";
+      return false;
+    }
+    if (listen(listen_fd, SOMAXCONN) == SOCKET_ERROR)
+    {
+      std::cerr << "Listen failed\n";
+      return false;
+    }
+
+    iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+
+    // Bind listener to IOCP
+    CreateIoCompletionPort((HANDLE) listen_fd, iocp, (ULONG_PTR) listen_fd, 0);
+
+    // Spawn workers
+    int threads = std::thread::hardware_concurrency();
+    if (threads <= 0)
+      threads = 4;
+    for (int i = 0; i < threads; ++i)
+      workers.emplace_back(&IocpServer::worker_loop, this);
+
+    // Start accepting connections asynchronously
+    accept_loop();
+
+    for (auto& t : workers)
+      t.join();
+    return true;
+  }
+
+private:
+  SOCKET listen_fd = INVALID_SOCKET;
+  HANDLE iocp = NULL;
+  std::vector<std::thread> workers;
+  std::vector<std::unique_ptr<Connection>> conns;
+
+  void accept_loop()
+  {
+    while (true)
+    {
+      SOCKET client = WSAAccept(listen_fd, NULL, NULL, NULL, 0);
+      if (client == INVALID_SOCKET)
+      {
+        int err = WSAGetLastError();
+        if (err == WSAEWOULDBLOCK || err == WSAEINTR)
+          continue;
+        else
+        {
+          std::cerr << "Accept error: " << err << "\n";
+          continue;
+        }
+      }
+
+      u_long mode = 1;
+      ioctlsocket(client, FIONBIO, &mode);
+
+      auto conn = std::make_unique<Connection>();
+      conn->init(client);
+
+      CreateIoCompletionPort((HANDLE) client, iocp, (ULONG_PTR) conn.get(), 0);
+
+      // Post first read
+      start_read(conn.get());
+      conns.push_back(std::move(conn));
+    }
+  }
+
+  void start_read(Connection* conn)
+  {
+    DWORD flags = 0;
+    conn->readCtx.wsaBuf.buf = conn->read_buf + conn->read_len;
+    conn->readCtx.wsaBuf.len = READ_BUF_SIZE - (ULONG) conn->read_len;
+    int rc = WSARecv(conn->fd, &conn->readCtx.wsaBuf, 1, NULL, &flags, &conn->readCtx.overlapped, NULL);
+    if (rc == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
+    {
+      conn->close_conn();
+    }
+  }
+
+  void start_write(Connection* conn)
+  {
+    conn->writeCtx.wsaBuf.buf = conn->write_buf + conn->write_offset;
+    conn->writeCtx.wsaBuf.len = (ULONG) (conn->write_len - conn->write_offset);
+    int rc = WSASend(conn->fd, &conn->writeCtx.wsaBuf, 1, NULL, 0, &conn->writeCtx.overlapped, NULL);
+    if (rc == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
+    {
+      conn->close_conn();
+    }
+  }
+
+  void worker_loop()
+  {
+    DWORD bytesTransferred;
+    ULONG_PTR key;
+    LPOVERLAPPED overlapped;
+
+    while (true)
+    {
+      BOOL ok = GetQueuedCompletionStatus(iocp, &bytesTransferred, &key, &overlapped, 1000);
+      auto conn = reinterpret_cast<Connection*>(key);
+      auto ctx = reinterpret_cast<PerIoContext*>(overlapped);
+
+      if (!ok || !ctx || !conn)
+      {
+        continue;
+      }
+
+      if (ctx->op == IoOperation::Read)
+      {
+        if (bytesTransferred == 0)
+        {
+          conn->close_conn();
+          continue;
+        }
+        conn->read_len += bytesTransferred;
+        if (has_double_crlf(conn->read_buf, conn->read_len))
+        {
+          conn->prepare_response();
+          start_write(conn);
+        }
+        else
+        {
+          start_read(conn);
+        }
+      }
+      else if (ctx->op == IoOperation::Write)
+      {
+        conn->write_offset += bytesTransferred;
+        if (conn->write_offset < conn->write_len)
+        {
+          start_write(conn);
+        }
+        else
+        {
+          if (conn->requests_served + 1 < MAX_KEEPALIVE_REQUESTS)
+          {
+            conn->reset_for_next_request();
+            start_read(conn);
+          }
+          else
+          {
+            conn->close_conn();
+          }
+        }
+      }
+    }
+  }
+};
 
 int main()
 {
-  WSADATA wsaData;
-  SOCKET listenSocket = INVALID_SOCKET;
-  HANDLE completionPort;
-  SYSTEM_INFO systemInfo;
-  std::vector<std::thread> threads;
-
-  if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+  IocpServer server;
+  if (!server.start())
   {
-    fprintf(stderr, "WSAStartup failed: %d\n", WSAGetLastError());
+    std::cerr << "Server failed to start\n";
     return 1;
   }
-
-  completionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-  if (!completionPort)
-  {
-    fprintf(stderr, "CreateIoCompletionPort failed: %lu\n", GetLastError());
-    WSACleanup();
-    return 1;
-  }
-
-  GetSystemInfo(&systemInfo);
-  DWORD threadCount = std::max<DWORD>(4, systemInfo.dwNumberOfProcessors * 2);
-  for (DWORD i = 0; i < threadCount; ++i)
-    threads.emplace_back(WorkerThread, completionPort);
-
-  listenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-  if (listenSocket == INVALID_SOCKET)
-  {
-    fprintf(stderr, "WSASocket failed: %d\n", WSAGetLastError());
-    CloseHandle(completionPort);
-    WSACleanup();
-    return 1;
-  }
-
-  BOOL opt = TRUE;
-  setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (char*) &opt, sizeof(opt));
-  setsockopt(listenSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*) &opt, sizeof(opt));
-
-  SOCKADDR_IN serverAddr{};
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverAddr.sin_port = htons(PORT);
-
-  if (bind(listenSocket, (SOCKADDR*) &serverAddr, sizeof(serverAddr)) == SOCKET_ERROR ||
-      listen(listenSocket, SOMAXCONN) == SOCKET_ERROR)
-  {
-    fprintf(stderr, "bind/listen failed: %d\n", WSAGetLastError());
-    closesocket(listenSocket);
-    CloseHandle(completionPort);
-    WSACleanup();
-    return 1;
-  }
-
-  printf("Server listening on port %d with %lu threads...\n", PORT, threadCount);
-
-  while (true)
-  {
-    PER_HANDLE_DATA* handleData = new PER_HANDLE_DATA();
-    int addrLen = sizeof(handleData->clientAddr);
-    handleData->socket = accept(listenSocket, (SOCKADDR*) &handleData->clientAddr, &addrLen);
-    if (handleData->socket == INVALID_SOCKET)
-    {
-      delete handleData;
-      continue;
-    }
-
-    DWORD flag = 1;
-    setsockopt(handleData->socket, IPPROTO_TCP, TCP_NODELAY, (char*) &flag, sizeof(flag));
-
-    if (!CreateIoCompletionPort((HANDLE) handleData->socket, completionPort, (ULONG_PTR) handleData, 0))
-    {
-      closesocket(handleData->socket);
-      delete handleData;
-      continue;
-    }
-
-    PER_IO_DATA* ioData = new PER_IO_DATA();
-    ZeroMemory(ioData, sizeof(PER_IO_DATA));
-    ioData->operation = OP_READ;
-    ioData->wsaBuf.buf = ioData->buffer;
-    ioData->wsaBuf.len = BUFFER_SIZE;
-
-    DWORD flags = 0;
-    if (WSARecv(handleData->socket, &ioData->wsaBuf, 1, NULL, &flags, &ioData->overlapped, NULL) == SOCKET_ERROR &&
-        WSAGetLastError() != WSA_IO_PENDING)
-    {
-      closesocket(handleData->socket);
-      delete handleData;
-      delete ioData;
-    }
-  }
-
-  for ([[maybe_unused]] auto& t : threads)
-    PostQueuedCompletionStatus(completionPort, 0, 0, NULL);
-  for (auto& t : threads)
-    t.join();
-
-  CloseHandle(completionPort);
-  closesocket(listenSocket);
-  WSACleanup();
   return 0;
 }

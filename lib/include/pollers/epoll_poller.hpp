@@ -12,5 +12,7 @@ namespace io
     Poller& operator=(const Poller&) = delete;
     Poller(Poller&&) = default;
     Poller& operator=(Poller&&) = default;
+
+    void add();
   };
 }
