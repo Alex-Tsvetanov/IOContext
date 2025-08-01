@@ -2,6 +2,14 @@
 if(WIN32)
     add_executable(hello_world windows/hello_world_http_chatgpt.cpp)
     target_link_libraries(hello_world ws2_32)
+    
+    add_executable(hello_world_http2 windows/hello_world_http2.cpp)
+    target_link_libraries(hello_world_http2 PRIVATE
+        nghttp2::nghttp2
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ws2_32
+    )
 elseif(UNIX)
     add_executable(hello_world unix/hello_world_http.cpp)
     
