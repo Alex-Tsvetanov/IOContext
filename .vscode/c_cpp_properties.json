@@ -12,7 +12,8 @@
             ],
             "windowsSdkVersion": "10.0.26100.0",
             "compilerPath": "cl.exe",
-            "intelliSenseMode": "windows-msvc-x64"
+            "intelliSenseMode": "windows-msvc-x64",
+            "configurationProvider": "go2sh.cmake-integration"
         }
     ],
     "version": 4
