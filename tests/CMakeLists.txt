@@ -41,3 +41,11 @@ if(UNIX)
     #     OpenSSL::Crypto
     # )
 endif()
+
+add_executable(hello_world_xhttp xhttp/hello_server.cpp)
+target_link_libraries(hello_world_xhttp PRIVATE
+    nghttp2::nghttp2
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    xhttp
+)
