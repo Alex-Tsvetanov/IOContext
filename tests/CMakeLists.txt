@@ -12,6 +12,7 @@ if(WIN32)
     )
 elseif(APPLE)
     add_executable(hello_world macos/hello_world_http.cpp)
+    add_executable(hello_world_macos macos/hello_world_http_macos.cpp)
 
     add_executable(hello_world_http2 macos/http2/hello_world_http2.cpp)
     target_link_libraries(hello_world_http2 PRIVATE
