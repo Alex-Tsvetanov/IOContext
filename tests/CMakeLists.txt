@@ -1,7 +1,10 @@
 # Add the integration test executable
+add_executable(hello_world_http_cross MARSHMELLOW.cpp)
+
 if(WIN32)
     add_executable(hello_world windows/hello_world_http_chatgpt.cpp)
     target_link_libraries(hello_world ws2_32)
+    target_link_libraries(hello_world_http_cross ws2_32)
 
     add_executable(hello_world_http2 windows/hello_world_http2.cpp)
     target_link_libraries(hello_world_http2 PRIVATE
@@ -30,7 +33,6 @@ else()
         OpenSSL::Crypto
     )
 endif()
-
 
 if(UNIX)
     add_executable(hello_world_http_unix poll/hello_world_http.cpp)
