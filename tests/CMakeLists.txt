@@ -2,7 +2,7 @@
 add_executable(hello_world_http_cross MARSHMELLOW.cpp)
 
 if(WIN32)
-    add_executable(hello_world windows/hello_world_http_chatgpt.cpp)
+    add_executable(hello_world windows/initial_work_on_drawio_scheme.cpp) #hello_world_http_windows.cpp)
     target_link_libraries(hello_world ws2_32)
     target_link_libraries(hello_world_http_cross ws2_32)
 
@@ -14,8 +14,7 @@ if(WIN32)
         ws2_32
     )
 elseif(APPLE)
-    add_executable(hello_world macos/hello_world_http.cpp)
-    add_executable(hello_world_macos macos/hello_world_http_macos.cpp)
+    add_executable(hello_world macos/hello_world_http_macos.cpp)
 
     add_executable(hello_world_http2 macos/http2/hello_world_http2.cpp)
     target_link_libraries(hello_world_http2 PRIVATE
@@ -24,7 +23,7 @@ elseif(APPLE)
         OpenSSL::Crypto
     )
 else()
-    add_executable(hello_world unix/hello_world_http.cpp)
+    add_executable(hello_world unix/hello_world_http_linux.cpp)
 
     add_executable(hello_world_http2 unix/http2/hello_world_http2.cpp)
     target_link_libraries(hello_world_http2 PRIVATE
