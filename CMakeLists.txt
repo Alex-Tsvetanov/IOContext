@@ -17,7 +17,7 @@ endif()
 if(MSVC)
     add_compile_options(/W4 /permissive- /Zc:__cplusplus /Zc:preprocessor /Zc:forScope)
 else()
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
+    add_compile_options(-Wall -Wextra -pedantic -O3)
 endif()
 
 # Set up OpenSSL

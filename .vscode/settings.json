@@ -66,6 +66,22 @@
         "xmemory": "cpp",
         "xstring": "cpp",
         "xtr1common": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "array": "cpp",
+        "cinttypes": "cpp",
+        "complex": "cpp",
+        "fstream": "cpp",
+        "future": "cpp",
+        "map": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "ranges": "cpp",
+        "span": "cpp",
+        "stack": "cpp",
+        "unordered_set": "cpp",
+        "xtree": "cpp",
+        "*.def": "cpp",
+        "regex": "cpp",
+        "*.inc": "cpp"
     }
 }

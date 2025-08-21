@@ -15,7 +15,7 @@
 
 using namespace std::chrono;
 
-constexpr int PORT = 8080;
+constexpr int PORT = 8081;
 constexpr int READ_BUF_SIZE = 4096;
 constexpr int WRITE_BUF_SIZE = 4096;
 constexpr int MAX_KEEPALIVE_REQUESTS = 100;
@@ -44,7 +44,6 @@ struct PerIoContext
   WSABUF wsaBuf{};
   IoOperation op;
   Connection* conn;
-  char buffer[READ_BUF_SIZE];
 };
 
 struct Connection

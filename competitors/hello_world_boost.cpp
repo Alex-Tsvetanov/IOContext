@@ -77,7 +77,7 @@ private:
 
 int main() {
     try {
-        HttpServer server(asio::ip::make_address("0.0.0.0"), 8080, std::thread::hardware_concurrency());
+        HttpServer server(asio::ip::make_address("0.0.0.0"), 8082, std::thread::hardware_concurrency());
         server.run(std::thread::hardware_concurrency());
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
