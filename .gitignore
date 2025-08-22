@@ -33,3 +33,4 @@
 
 ignore/
 build/
+.cache/

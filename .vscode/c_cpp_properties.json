@@ -3,7 +3,8 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/lib/include"
             ],
             "defines": [
                 "_DEBUG",
@@ -13,6 +14,20 @@
             "windowsSdkVersion": "10.0.26100.0",
             "compilerPath": "cl.exe",
             "intelliSenseMode": "windows-msvc-x64",
+            "configurationProvider": "go2sh.cmake-integration"
+        },
+        {
+            "name": "Arch Linux",
+            "includePath": [
+                "${workspaceFolder}/lib/include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "clang++",
+            "intelliSenseMode": "linux-clang-x64",
             "configurationProvider": "go2sh.cmake-integration"
         }
     ],

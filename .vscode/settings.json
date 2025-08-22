@@ -82,6 +82,26 @@
         "xtree": "cpp",
         "*.def": "cpp",
         "regex": "cpp",
-        "*.inc": "cpp"
-    }
+        "*.inc": "cpp",
+        "string_view": "cpp",
+        "text_encoding": "cpp",
+        "valarray": "cpp",
+        "any": "cpp",
+        "strstream": "cpp",
+        "codecvt": "cpp",
+        "coroutine": "cpp",
+        "csignal": "cpp",
+        "cstdarg": "cpp",
+        "cwctype": "cpp",
+        "set": "cpp",
+        "memory_resource": "cpp",
+        "source_location": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "shared_mutex": "cpp",
+        "stdfloat": "cpp",
+        "typeindex": "cpp",
+        "variant": "cpp"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
