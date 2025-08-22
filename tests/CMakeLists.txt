@@ -36,6 +36,9 @@ endif()
 if(UNIX)
     add_executable(hello_world_http_unix poll/hello_world_http.cpp)
 
+    # Linux epoll HTTP 1.1 server
+    add_executable(hello_world_http2_linux hello_world_http2_linux.cpp)
+
     # add_executable(hello_world_http2_unix poll/http2/hello_world_http2.cpp)
     # target_link_libraries(hello_world_http2_unix PRIVATE
     #     nghttp2::nghttp2

@@ -20,8 +20,8 @@ else()
     add_compile_options(-Wall -Wextra -pedantic -O3)
 endif()
 
-# Set up OpenSSL
-find_package(OpenSSL REQUIRED)
+# Set up OpenSSL (optional for basic HTTP 1.1)
+find_package(OpenSSL)
 # Set up nghttp2
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(ENABLE_HPACK_TOOLS OFF CACHE BOOL "" FORCE)

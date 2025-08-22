@@ -9,10 +9,15 @@
 #include <memory>
 #include <chrono>
 
-#include "pollers/iocp_poller.hpp" // For Windows first; epoll/kqueue come next
+#if defined(_WIN32)
+  #include "pollers/iocp_poller.hpp"
+#else
+  #include "pollers/epoll_poller.hpp"
+#endif
 
 namespace io
 {
+#if defined(_WIN32)
   class MyIOContext
   {
   public:
@@ -20,9 +25,9 @@ namespace io
     ~MyIOContext();
 
     void post(std::function<void()> task);
-    bool register_handle(SOCKET fd); // IOCP only
-    void run();                      // single-thread
-    void run_in_threads(size_t n);   // optional MT
+    bool register_handle(SOCKET fd);
+    void run();
+    void run_in_threads(size_t n);
     void stop();
 
   private:
@@ -31,6 +36,28 @@ namespace io
     std::queue<std::function<void()>> work_queue_;
     std::atomic<bool> stop_flag_ = false;
 
-    void run_tasks(); // handles only the `post()` queue
+    void run_tasks();
   };
+#else
+  class MyIOContext
+  {
+  public:
+    MyIOContext();
+    ~MyIOContext();
+
+    void post(std::function<void()> task);
+    bool register_handle(PlatformSocket fd, EpollEvent* event, uint32_t events = EPOLLIN | EPOLLET);
+    void run();
+    void run_in_threads(size_t n);
+    void stop();
+
+  private:
+    std::unique_ptr<EpollPoller> poller_;
+    std::mutex queue_mutex_;
+    std::queue<std::function<void()>> work_queue_;
+    std::atomic<bool> stop_flag_ = false;
+
+    void run_tasks();
+  };
+#endif
 } // namespace io
