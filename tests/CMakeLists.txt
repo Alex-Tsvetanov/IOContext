@@ -6,6 +6,10 @@ if(WIN32)
     target_link_libraries(hello_world ws2_32)
     target_link_libraries(hello_world_http_cross ws2_32)
 
+    # Add the refactored IOCP server example
+    add_executable(iocp_server_example iocp_server_example.cpp)
+    target_link_libraries(iocp_server_example PRIVATE iocontext)
+
     add_executable(hello_world_http2 windows/hello_world_http2.cpp)
     target_link_libraries(hello_world_http2 PRIVATE
         nghttp2::nghttp2
