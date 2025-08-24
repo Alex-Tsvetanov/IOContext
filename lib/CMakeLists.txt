@@ -1,7 +1,11 @@
 add_library(owned_buffer STATIC src/common/owned_buf.cpp)
+target_include_directories(owned_buffer PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
-add_library(iocontext)
-target_link_libraries(iocontext PUBLIC owned_buffer)
+
+add_library(iocontext src/common/owned_buf.cpp)
+# target_link_libraries(iocontext PUBLIC owned_buffer)
 
 # Set include directories
 target_include_directories(iocontext PUBLIC
