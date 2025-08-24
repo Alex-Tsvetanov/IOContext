@@ -3,7 +3,7 @@
 
 namespace ProcessingState
 {
-  static inline constexpr size_t not_started{-1};
+  static inline constexpr size_t not_started{static_cast<size_t>(-1)};
 
   // --- grouped, named states for HTTP/1.1 ---
   namespace HTTP11
