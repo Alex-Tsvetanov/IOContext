@@ -1,3 +1,6 @@
+# Add unit tests for the ProcessingMachine
+add_subdirectory(unit)
+
 # Add the integration test executable
 add_executable(hello_world_http_cross MARSHMELLOW.cpp)
 
@@ -27,6 +30,9 @@ elseif(APPLE)
         OpenSSL::Crypto
     )
 else()
+    add_executable(iocontext_http_server unix/hello_world_iocontext_linux.cpp)
+    target_link_libraries(iocontext_http_server PRIVATE iocontext)
+
     add_executable(hello_world unix/hello_world_http_linux.cpp)
 
     add_executable(hello_world_http2 unix/http2/hello_world_http2.cpp)

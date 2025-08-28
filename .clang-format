@@ -8,7 +8,7 @@ IndentWidth: 2
 TabWidth: 2
 ContinuationIndentWidth: 2
 AccessModifierOffset: -2  # public/private/protected not indented inside class
-IndentPPDirectives: AfterHash
+IndentPPDirectives: None
 
 # === Braces ===
 BreakBeforeBraces: Custom

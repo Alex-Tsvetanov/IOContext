@@ -1,14 +1,20 @@
 #ifndef WORKFLOW_H
 #define WORKFLOW_H
 
-enum class Op : uint8_t
+#include <cstdint>
+enum class Workflow : uint8_t
 {
-  Accept,
-  Recv,
-  Send,
-  Kick,
-  Process,
-  Respond
+  Accept,           // Accept a new connection
+  Recv,             // Receive data
+  Parse,            // Parse the request
+  FindHandler,      // Find the appropriate handler
+  GenerateResponse, // Generate the response
+  RequestFlush,     // Request to flush the response
+  PollOut,          // Waiting for write readiness
+  Send,             // Send data
+  RequestClose,     // Request to close the connection
+  Closed,           // Closed the connection
+  FreeBuffer        // Buffer returned to the poll
 };
 
 #endif // WORKFLOW_H

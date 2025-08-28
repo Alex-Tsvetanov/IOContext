@@ -10,8 +10,7 @@ struct ProcessingMachine
 {
   Request req;
   Response res;
-  size_t state{ProcessingState::not_started}; // Parsing Request
-  size_t tmp_buf_indx{0};                     // the index of the buffer used for the partial parsing
+  ProcessingState::type state{ProcessingState::not_started}; // Parsing Request
   std::string tmp_buf[2]; // up to 2 buffers used for partial parsing - [0] = method, path, protocol version, header
                           // name, body; [1] = header value
   size_t body_bytes_needed{0}; // on-line value of Content-legth header (stored while reading the segment char-by-char)

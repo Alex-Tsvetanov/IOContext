@@ -31,5 +31,8 @@ set(ENABLE_SHARED_LIB OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/nghttp2)
 
 add_subdirectory(lib)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/external/catch2)
 add_subdirectory(tests)
+
 add_subdirectory(competitors)

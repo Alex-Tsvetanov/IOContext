@@ -10,6 +10,14 @@ struct Response
   std::string code{"200 OK"};
   std::unordered_map<std::string, std::string> headers;
   std::string body;
+
+  void reset()
+  {
+    protocol = "HTTP/1.1";
+    code = "200 OK";
+    headers.clear();
+    body.clear();
+  }
 };
 
 #endif // RESPONSE_H

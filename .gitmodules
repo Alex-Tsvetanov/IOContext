@@ -2,3 +2,6 @@
 	path = external/nghttp2
 	url = https://github.com/nghttp2/nghttp2
 	branch = v1.66.0
+[submodule "Catch2"]
+	path = external/catch2
+	url = https://github.com/catchorg/Catch2.git
