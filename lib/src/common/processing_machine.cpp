@@ -1,4 +1,8 @@
 #include "common/processing_machine.hpp"
+#include "common/processing_state.hpp"
+#include "common/debug_log.hpp"
+#include <string>
+#include <string_view>
 
 void ProcessingMachine::reset_parser()
 {
@@ -7,19 +11,23 @@ void ProcessingMachine::reset_parser()
   state = ProcessingState::not_started;
   tmp_buf[0].clear();
   tmp_buf[1].clear();
-  body_bytes_needed = 0;
+  body_bytes_needed = -1;
   keep_alive = true;
 }
 
-void ProcessingMachine::on_segment(const char* p, size_t n)
+size_t ProcessingMachine::on_segment(const char* p, size_t n)
 {
   if (state == ProcessingState::not_started)
   {
     state = ProcessingState::HTTP11::method; // HTTP 1.1 only support
   }
 
+#ifdef DEBUG
+  ts_std::cout << "Parsing data:\n" << std::string_view(p, n) << std::endl;
+#endif // DEBUG
+
   size_t i = 0;
-  while (i < n && state != ProcessingState::error_state)
+  while (i < n && state != ProcessingState::error_state && state != ProcessingState::completed_state)
   {
     char c = p[i++];
     switch (state)
@@ -102,7 +110,14 @@ void ProcessingMachine::on_segment(const char* p, size_t n)
         tmp_buf[0].clear();
         tmp_buf[1].clear();
         // store header
+#ifdef DEBUG
+        ts_std::cout << "Parsed header: " << name << ": " << value << std::endl;
+#endif // DEBUG
         req.headers.emplace(std::move(name), std::move(value));
+        if (req.headers.contains("Content-Length"))
+        {
+          body_bytes_needed = std::stoull(req.headers["Content-Length"]);
+        }
         state = ProcessingState::HTTP11::cr;
       }
       else
@@ -139,7 +154,7 @@ void ProcessingMachine::on_segment(const char* p, size_t n)
       if (c == '\n')
       {
         state = ProcessingState::HTTP11::crlfcrlf;
-        state = ProcessingState::HTTP11::body;
+        state = (body_bytes_needed > 0) ? ProcessingState::HTTP11::body : ProcessingState::completed_state;
       }
       else
       {
@@ -148,9 +163,17 @@ void ProcessingMachine::on_segment(const char* p, size_t n)
       break;
     }
     case ProcessingState::HTTP11::body: {
-      req.body += c;
+      if (req.body.size() < static_cast<size_t>(body_bytes_needed))
+      {
+        req.body += c;
+      }
+      if (req.body.size() == static_cast<size_t>(body_bytes_needed))
+      {
+        state = ProcessingState::completed_state;
+      }
       break;
     }
     }
   }
+  return i;
 }

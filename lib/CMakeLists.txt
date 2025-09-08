@@ -3,10 +3,13 @@ target_include_directories(owned_buffer PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+find_package(Boost REQUIRED COMPONENTS system)
+
 add_library(processing_machine STATIC src/common/processing_machine.cpp)
 target_include_directories(processing_machine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+add_compile_definitions(DEBUG)
 
 if(WIN32)
   add_library(iocontext
@@ -28,10 +31,10 @@ else() # Linux
     src/common/socket.cpp
     src/server/linux/worker.cpp
   )
-  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY})
+  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY} Boost::system)
 endif()
 
-target_link_libraries(iocontext PUBLIC owned_buffer processing_machine)
+target_link_libraries(iocontext PUBLIC processing_machine)
 
 # Set include directories
 target_include_directories(iocontext PUBLIC

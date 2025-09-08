@@ -1,7 +1,3 @@
-// SPDX-License-Identifier: MIT
-// Build: g++ -O2 -std=gnu++20 -pthread linux/http11_uring_server_msg_ring.cpp -luring -o http_uring
-// Run  : ./http_uring [port] [threads]
-
 #include <atomic>
 #include <chrono>
 #include <cstdint>

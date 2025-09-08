@@ -10,11 +10,9 @@ enum class Workflow : uint8_t
   FindHandler,      // Find the appropriate handler
   GenerateResponse, // Generate the response
   RequestFlush,     // Request to flush the response
-  PollOut,          // Waiting for write readiness
   Send,             // Send data
   RequestClose,     // Request to close the connection
   Closed,           // Closed the connection
-  FreeBuffer        // Buffer returned to the poll
 };
 
 #endif // WORKFLOW_H

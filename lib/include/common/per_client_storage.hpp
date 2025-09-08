@@ -1,13 +1,11 @@
 #ifndef PER_CLIENT_STORAGE_H
 #define PER_CLIENT_STORAGE_H
 
-#include "common/owned_buf.hpp"
+#include "common/request_processing.hpp"
+#include "ds/queue.hpp"
+#include "ds/set.hpp"
 #include "socket.hpp"
 #include "workflow.hpp"
-#include "processing_machine.hpp"
-#include <atomic>
-#include <deque>
-#include <functional>
 
 class Worker;
 
@@ -15,6 +13,8 @@ class PerClientStorage
 {
 public:
   PerClientStorage() = default;
+
+  void reset();
 
   void post(Workflow step);
 
@@ -30,17 +30,10 @@ private:
   fd_t fd{-1};
   uint32_t served{0};
   bool closing{false};
-  bool keep_alive{true};
-  size_t body_need{0};
-
-  ProcessingMachine parser;
-  std::function<void(const Request&, Response&)> request_handler;
 
   friend struct ConnTable;
   friend class Worker;
   Worker* owner{nullptr};
-
-  BatchedSendData batched_send_data;
 
   // policy
   uint16_t keepalive_limit{65000};
@@ -49,18 +42,23 @@ private:
   bool ms_recv_armed{false};
   bool pollout_armed{false};
 
-  // edge-triggered send kick
-  std::atomic_flag sendkick_pending = ATOMIC_FLAG_INIT;
+  // Current request processing
+  TSSet<RequestProcessing>::element current_request;
+
+  // Processed requests that need to find their handlers
+  TSSet<RequestProcessing> requests_needing_handlers;
+
+  // Processed requests that need to call their handlers and generate responses
+  TSSet<RequestProcessing> requests_needing_responses;
 
   // RX
-  std::deque<OwnedBuf> rxq;                   // worker-thread only
-  std::shared_ptr<std::vector<char>> rx_hold; // singleshot fallback
+  TSSet<void> upcoming_recv_buffs;
+  TSQueue<std::vector<char>> completed_recv_buffs;
 
   // TX
-  std::deque<OwnedBuf> txq;
-  std::deque<OwnedBuf> tx_inflight;
+  TSSet<RequestProcessing> requests_in_flight;
+  TSSet<RequestProcessing> requests_ready;
   bool send_inflight{false};
-  bool inflight_eor{false};
 };
 
 #endif // PER_CLIENT_STORAGE_H

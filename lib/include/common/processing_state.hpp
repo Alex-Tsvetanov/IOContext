@@ -8,6 +8,7 @@ namespace ProcessingState
   using type = uint64_t;
   static inline constexpr type not_started{static_cast<type>(-1)};
   static inline constexpr type error_state{static_cast<type>(-2)};
+  static inline constexpr type completed_state{static_cast<type>(-3)};
 
   // --- grouped, named states for HTTP/1.1 ---
   namespace HTTP11

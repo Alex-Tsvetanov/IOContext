@@ -3,136 +3,217 @@
 #include "common/workflow.hpp"
 #include "server/worker.hpp"
 #include "server/server.hpp"
-#include <cstring>
+#include <cstddef>
+#include <memory>
+#ifdef DEBUG
 #include <iostream>
+#include "common/debug_log.hpp"
+#endif
+
+void PerClientStorage::reset()
+{
+  current_request.reset();
+  requests_needing_handlers.clear();
+  requests_needing_responses.clear();
+}
 
 void PerClientStorage::post(Workflow wf)
 {
-  owner->post_task(fd, wf);
+#ifdef DEBUG
+  ts_std::cout << "[Worker] Posting task " << int(wf) << " for fd=" << fd << std::endl;
+#endif
+  switch (wf)
+  {
+  case Workflow::FindHandler:
+    while (!owner->post_find_handler(this))
+    {
+    }
+    break;
+  case Workflow::GenerateResponse:
+    while (!owner->post_generate_response(this))
+    {
+    }
+    break;
+  case Workflow::Parse:
+    while (!owner->post_parse(this))
+    {
+    }
+    break;
+  case Workflow::RequestFlush:
+    while (!owner->post_request_flush(this))
+    {
+    }
+    break;
+  default:
+    break;
+  }
 }
 
 void PerClientStorage::parse_step()
 {
-  const auto t0 = std::chrono::steady_clock::now();
-  int processed = 0;
-  for (;;)
+  if (!current_request)
   {
-    if (rxq.empty())
+    current_request = std::make_shared<RequestProcessing>();
+  }
+
+  [[maybe_unused]] const auto t0 = std::chrono::steady_clock::now();
+  bool emit_finding_handlers = false;
+  bool emit_generating_response = false;
+  while (!completed_recv_buffs.empty())
+  {
+    auto buff = completed_recv_buffs.pop();
+    const char* seg = buff->data();
+    size_t len = buff->size();
+#ifdef DEBUG
+    ts_std::cout << "Parsing buffer:\n" << std::string_view(seg, len) << std::endl;
+#endif
+    size_t processed = 0;
+    while (processed < len)
     {
-      break;
-    }
-    int take = std::min<int>(PROC_MAX_SEGMENTS, (int) rxq.size());
-    for (int i = 0; i < take; ++i)
-    {
-      auto seg = std::move(rxq.front());
-      rxq.pop_front();
-      parser.on_segment(seg.wb.buf, seg.wb.len);
-      if (parser.state == ProcessingState::error_state)
+      processed += this->current_request->parser.on_segment(seg + processed, len - processed);
+#ifdef DEBUG
+      ts_std::cout << "Parsed " << processed << "/" << len << " bytes for fd=" << fd
+                   << ", state=" << this->current_request->parser.state << std::endl;
+#endif
+      if (this->current_request->parser.state == ProcessingState::error_state)
       {
-        std::cerr << "Error parsing HTTP request" << std::endl;
-        closing = true;
-        this->post(Workflow::RequestClose);
-        return;
+        this->requests_needing_handlers.add(this->current_request);
+        emit_finding_handlers = true;
+        this->current_request = std::make_shared<RequestProcessing>();
       }
-      if (parser.state > ProcessingState::HTTP11::path) // path has been parsed
+      if (this->current_request->parser.state > ProcessingState::HTTP11::path &&
+          !this->current_request->request_handler)
       {
-        this->post(Workflow::FindHandler);
+        this->requests_needing_handlers.add(this->current_request);
+        emit_finding_handlers = true;
       }
-      if (parser.state == ProcessingState::HTTP11::body) // body has started being parsed
+      if (processed < len && this->current_request->parser.state == ProcessingState::completed_state)
       {
-        if (parser.req.headers.count("Content-Length") > 0)
+        if (this->current_request->request_handler)
         {
-          if (parser.req.body.size() == std::stoull(parser.req.headers["Content-Length"]))
-          {
-            this->post(Workflow::GenerateResponse);
-          }
+          emit_generating_response = true;
+          this->requests_needing_responses.add(this->current_request);
         }
-        else
-        {
-          this->post(Workflow::GenerateResponse);
-        }
+        this->current_request = std::make_shared<RequestProcessing>();
       }
     }
-    if (++processed >= PROC_MAX_SEGMENTS)
-    {
-      break;
-    }
-    if (std::chrono::steady_clock::now() - t0 >= PROC_TIME_BUDGET)
-    {
-      break;
-    }
+  }
+  if (emit_finding_handlers)
+  {
+    this->post(Workflow::FindHandler);
+  }
+  if (emit_generating_response)
+  {
+    this->post(Workflow::GenerateResponse);
   }
 }
 
 bool PerClientStorage::on_send_completed()
 {
-  bool finished = false;
-  tx_inflight.clear();
-  send_inflight = false;
-  if (inflight_eor)
-  {
-    finished = true;
-  }
-  inflight_eor = false;
-
-  if (finished)
-  {
-    served++;
-    if (served >= keepalive_limit || !keep_alive || closing)
-    {
-      return true;
-    }
-  }
-  return false;
+  return this->requests_ready.empty() && this->requests_in_flight.empty();
 }
 
 void PerClientStorage::find_handler()
 {
-  // Find the appropriate handler for the request
-  auto it = owner->server()->get_routes().find(parser.req.path);
-  if (it != owner->server()->get_routes().end())
+#ifdef DEBUG
+  ts_std::cout << "Finding handler for fd=" << this->fd << std::endl;
+#endif // DEBUG
+  this->requests_needing_handlers.lock();
+  const auto& requests = requests_needing_handlers.unsafe_get_set();
+  bool emit_generating_response = false;
+  for (const auto& req : requests)
   {
-    request_handler = it->second;
+#ifdef DEBUG
+    ts_std::cout << "Request state: " << req->parser.state << std::endl;
+#endif // DEBUG
+    if (req->parser.state == ProcessingState::error_state)
+    {
+      auto it = owner->server()->get_routes().find("500");
+      if (it != owner->server()->get_routes().end())
+      {
+        req->request_handler = it->second;
+        requests_needing_responses.add(req);
+        emit_generating_response = true;
+      }
+      continue;
+    }
+    // Find the appropriate handler for the request
+    auto it = owner->server()->get_routes().find(req->parser.req.path);
+    if (it != owner->server()->get_routes().end())
+    {
+      req->request_handler = it->second;
+      requests_needing_responses.add(req);
+      emit_generating_response = true;
+    }
+    else
+    {
+      auto it = owner->server()->get_routes().find("404");
+      if (it != owner->server()->get_routes().end())
+      {
+        req->request_handler = it->second;
+        requests_needing_responses.add(req);
+        emit_generating_response = (req->parser.state == ProcessingState::completed_state);
+      }
+    }
+  }
+#ifdef DEBUG
+  ts_std::cout << "Emitting generate response: " << emit_generating_response << std::endl;
+#endif // DEBUG
+  this->requests_needing_handlers.unlock();
+  requests_needing_handlers.clear();
+  if (emit_generating_response)
+  {
+    this->post(Workflow::GenerateResponse);
   }
 }
-
 void PerClientStorage::generate_response()
 {
-  if (request_handler)
+  this->requests_needing_responses.lock();
+  const auto& requests = requests_needing_responses.unsafe_get_set();
+  for (auto& req : requests)
   {
-    // Generate the response using the found handler
-    std::invoke(request_handler, parser.req, parser.res);
+    std::invoke(req->request_handler, req->parser.req, req->parser.res);
 
-    // initial headers
+    // First line
     {
-      std::shared_ptr<std::string> response = std::make_shared<std::string>();
-      *response += "HTTP/1.1 " + parser.res.code + "\r\n";
-      *response += "Content-Length: " + std::to_string(parser.res.body.size()) + "\r\n";
-      this->txq.emplace_back(OwnedBuf{StringBuf{response->size(), response->data()}, false, response});
+      req->batched_send_data.iov.emplace_back((void*) "HTTP/1.1 ", 9);
+      req->batched_send_data.iov.emplace_back((void*) req->parser.res.code.data(), req->parser.res.code.size());
+      req->batched_send_data.iov.emplace_back((void*) "\r\n", 2);
     }
 
-    // Additional headers
+    // Headers
     {
-      if (!parser.res.headers.empty())
+      req->parser.res.headers["Content-Length"] = std::to_string(req->parser.res.body.size());
+      for (const auto& h : req->parser.res.headers)
       {
-        for (const auto& h : parser.res.headers)
-        {
-          std::shared_ptr<std::string> header = std::make_shared<std::string>();
-          *header += h.first + ": " + h.second + "\r\n";
-          this->txq.emplace_back(OwnedBuf{StringBuf{header->size(), header->data()}, false, header});
-        }
+        req->batched_send_data.iov.emplace_back((void*) h.first.data(), h.first.size());
+        req->batched_send_data.iov.emplace_back((void*) ": ", 2);
+        req->batched_send_data.iov.emplace_back((void*) h.second.data(), h.second.size());
+        req->batched_send_data.iov.emplace_back((void*) "\r\n", 2);
       }
       // End of headers
-      this->txq.emplace_back(OwnedBuf::literal("\r\n", 2, false));
+      req->batched_send_data.iov.emplace_back((void*) "\r\n", 2);
     }
 
     // Body
     {
-      std::shared_ptr<std::string> body = std::make_shared<std::string>();
-      *body += parser.res.body;
-      this->txq.emplace_back(OwnedBuf{StringBuf{body->size(), body->data()}, false, body});
+      req->batched_send_data.iov.emplace_back((void*) req->parser.res.body.data(), req->parser.res.body.size());
     }
 
+    req->batched_send_data.msg.msg_iov = req->batched_send_data.iov.data();
+    req->batched_send_data.msg.msg_iovlen = req->batched_send_data.iov.size();
+
+#ifdef DEBUG
+    for (const auto& iovec : req->batched_send_data.iov)
+    {
+      ts_std::cout << std::string_view(static_cast<const char*>(iovec.iov_base), iovec.iov_len);
+    }
+    ts_std::cout << std::endl;
+#endif
+
+    this->requests_ready.add(req);
     this->post(Workflow::RequestFlush);
   }
+  this->requests_needing_responses.unlock();
+  this->requests_needing_responses.clear();
 }

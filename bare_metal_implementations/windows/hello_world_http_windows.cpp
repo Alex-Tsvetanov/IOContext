@@ -4,35 +4,33 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
-#include <vector>
 #include <algorithm>
 
 #ifdef _WIN32
-#  define _WIN32_WINNT 0x0600
-#  define WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-#  include <winsock2.h>
-#  include <mswsock.h>
-#  include <ws2tcpip.h>
-#  pragma comment(lib, "Ws2_32.lib")
-#  pragma comment(lib, "Mswsock.lib")
+#define _WIN32_WINNT 0x0600
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <mswsock.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Mswsock.lib")
 #else
-#  error This file targets Windows IOCP.
+#error This file targets Windows IOCP.
 #endif
 
 using namespace std::chrono;
 
 #ifndef CONTAINING_RECORD
-#  include <cstddef>
-#  define CONTAINING_RECORD(ptr, type, member)                                                                         \
-    (reinterpret_cast<type*>(reinterpret_cast<char*>(ptr) - offsetof(type, member)))
+#include <cstddef>
+#define CONTAINING_RECORD(ptr, type, member)                                                                           \
+  (reinterpret_cast<type*>(reinterpret_cast<char*>(ptr) - offsetof(type, member)))
 #endif
 
 // ===================== Tunables =====================================
@@ -111,7 +109,9 @@ struct WinSockWrapper
   {
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+    {
       die("WSAStartup failed");
+    }
   }
   ~WinSockWrapper() { WSACleanup(); }
 
@@ -126,13 +126,17 @@ struct WinSockWrapper
     GUID g1 = WSAID_ACCEPTEX;
     if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &g1, sizeof(g1), &AcceptExPtr, sizeof(AcceptExPtr), &bytes,
                  nullptr, nullptr) == SOCKET_ERROR)
+    {
       die("WSAIoctl(WSAID_ACCEPTEX) failed");
+    }
   }
   static SOCKET make_listen_socket(uint16_t port)
   {
     SOCKET s = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (s == INVALID_SOCKET)
+    {
       die("WSASocket listen");
+    }
     int on = 1;
     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*) &on, sizeof(on));
     sockaddr_in a{};
@@ -140,9 +144,13 @@ struct WinSockWrapper
     a.sin_addr.s_addr = INADDR_ANY;
     a.sin_port = htons(port);
     if (bind(s, (sockaddr*) &a, sizeof(a)) == SOCKET_ERROR)
+    {
       die("bind");
+    }
     if (listen(s, SOMAXCONN) == SOCKET_ERROR)
+    {
       die("listen");
+    }
     return s;
   }
 } wsa_;
@@ -194,7 +202,9 @@ struct RequestContext
   {
     auto i = s.find("\r\n\r\n");
     if (i == std::string::npos)
+    {
       return false;
+    }
     pos = i;
     return true;
   }
@@ -215,16 +225,22 @@ struct RequestContext
     {
       auto end = block.find("\r\n", start);
       if (end == std::string::npos)
+      {
         end = block.size();
+      }
       if (end == start)
+      {
         break;
+      }
       auto colon = block.find(':', start);
       if (colon != std::string::npos && colon < end)
       {
         std::string k = block.substr(start, colon - start);
         size_t vbeg = colon + 1;
         while (vbeg < end && (block[vbeg] == ' ' || block[vbeg] == '\t'))
+        {
           ++vbeg;
+        }
         std::string v = block.substr(vbeg, end - vbeg);
         req.headers.emplace(std::move(k), std::move(v));
       }
@@ -398,7 +414,9 @@ void RequestContext::on_segment(const char* p, size_t n)
     {
       auto eol = acc.find("\r\n");
       if (eol == std::string::npos)
+      {
         return;
+      }
       parse_request_line(acc.substr(0, eol), *owner->req);
       acc.erase(0, eol + 2);
       state = PS::Headers;
@@ -407,7 +425,9 @@ void RequestContext::on_segment(const char* p, size_t n)
     {
       size_t hdr_end = 0;
       if (!find_double_crlf(acc, hdr_end))
+      {
         return;
+      }
       size_t content_len = 0;
       parse_headers(acc.substr(0, hdr_end + 2), *owner->req, keep_alive, content_len);
       acc.erase(0, hdr_end + 4);
@@ -426,7 +446,9 @@ void RequestContext::on_segment(const char* p, size_t n)
         body_bytes_needed -= take;
       }
       if (body_bytes_needed > 0)
+      {
         return;
+      }
 
       owner->enqueue_request_for_response(owner->req);
       owner->res = std::make_shared<Response>();
@@ -472,19 +494,27 @@ public:
   PerClientStorage* try_get(ConnHandle h)
   {
     if (h.index >= slots_.size())
+    {
       return nullptr;
+    }
     auto& slot = slots_[h.index];
     if (!slot.in_use.load(std::memory_order_acquire))
+    {
       return nullptr;
+    }
     if (slot.generation.load(std::memory_order_acquire) != h.generation)
+    {
       return nullptr;
+    }
     return &slot.client;
   }
 
   void close_and_recycle(ConnHandle h)
   {
     if (h.index >= slots_.size())
+    {
       return;
+    }
     auto& slot = slots_[h.index];
     if (slot.in_use.exchange(false, std::memory_order_acq_rel))
     {
@@ -523,7 +553,9 @@ public:
     {
       auto& slot = slots_[i];
       if (!slot.in_use.load(std::memory_order_acquire))
+      {
         continue;
+      }
       auto* c = &slot.client;
       if (now - c->last_active > idle)
       {
@@ -604,12 +636,16 @@ private:
     ac->hdr.s = listen_;
     ac->acceptSock = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (ac->acceptSock == INVALID_SOCKET)
+    {
       WinSockWrapper::die("WSASocket acceptSock");
+    }
     DWORD bytes = 0;
     BOOL ok =
       WinSockWrapper::AcceptExPtr(listen_, ac->acceptSock, ac->addrbuf, 0, ADDR_LEN, ADDR_LEN, &bytes, &ac->hdr.ol);
     if (!ok && WSAGetLastError() != ERROR_IO_PENDING)
+    {
       WinSockWrapper::die("AcceptEx");
+    }
   }
 
   void maybe_start_send_worker(PerClientStorage* c)
@@ -621,7 +657,9 @@ private:
       std::lock_guard lk(c->tx_mtx);
       c->kick_pending = false;
       if (c->send_inflight || c->txq.empty())
+      {
         return;
+      }
 
       for (auto it = c->txq.begin(); it != c->txq.end() && tx_count < MAX_WSABUF; ++it, ++tx_count)
       {
@@ -634,7 +672,9 @@ private:
         }
       }
       if (tx_count == 0)
+      {
         return; // nothing to send (paranoia)
+      }
 
       c->inflight_count = tx_count;
       c->inflight_eor = eor;
@@ -697,7 +737,9 @@ private:
         if (!ok)
         {
           if (s != INVALID_SOCKET)
+          {
             ::closesocket(s);
+          }
           post_accept(ac);
           break;
         }
@@ -731,7 +773,9 @@ private:
       case Op::Recv: {
         auto* c = table_.try_get(h);
         if (!c)
+        {
           break;
+        }
 
         if (!ok || bytes == 0)
         {
@@ -746,7 +790,9 @@ private:
           hold = c->rx_hold;
           c->rx_hold.reset();
           if (hold)
+          {
             c->rxq.emplace_back(OwnedBuf{WSABUF{(ULONG) bytes, hold->data()}, false, hold});
+          }
           if (!c->parse_inflight)
           {
             c->parse_inflight = true;
@@ -755,14 +801,18 @@ private:
         }
 
         if (!c->closing)
+        {
           start_recv(c);
+        }
       }
       break;
 
       case Op::Process: {
         auto* c = table_.try_get(h);
         if (!c)
+        {
           break;
+        }
 
         auto t0 = steady_clock::now();
         int processed = 0;
@@ -780,37 +830,53 @@ private:
             }
           }
           if (segs.empty())
+          {
             break;
+          }
 
           for (auto& seg : segs)
           {
             c->http.on_segment(seg.wb.buf, seg.wb.len);
             if (++processed >= PROC_MAX_SEGMENTS)
+            {
               break;
+            }
           }
           if (processed >= PROC_MAX_SEGMENTS)
+          {
             break;
+          }
           if (steady_clock::now() - t0 >= PROC_TIME_BUDGET)
+          {
             break;
+          }
         }
 
         bool repost = false;
         {
           std::lock_guard lk(c->rx_mtx);
           if (!c->rxq.empty())
+          {
             repost = true;
+          }
           else
+          {
             c->parse_inflight = false;
+          }
         }
         if (repost)
+        {
           PostQueuedCompletionStatus(iocp_, 0, pack_key(h), &c->proc.ol);
+        }
       }
       break;
 
       case Op::Respond: {
         auto* c = table_.try_get(h);
         if (!c)
+        {
           break;
+        }
 
         std::vector<std::shared_ptr<Request>> reqs;
         {
@@ -845,7 +911,9 @@ private:
       case Op::Kick: {
         auto* c = table_.try_get(h);
         if (!c)
+        {
           break;
+        }
         maybe_start_send_worker(c);
       }
       break;
@@ -853,7 +921,9 @@ private:
       case Op::Send: {
         auto* c = table_.try_get(h);
         if (!c)
+        {
           break;
+        }
 
         if (!ok)
         {
@@ -865,7 +935,9 @@ private:
         {
           std::lock_guard lk(c->tx_mtx);
           for (int i = 0; i < c->inflight_count && !c->txq.empty(); ++i)
+          {
             c->txq.pop_front();
+          }
           finished = c->inflight_eor;
           c->inflight_count = 0;
           c->inflight_eor = false;
@@ -926,10 +998,14 @@ public:
 
     iocp_ = CreateIoCompletionPort((HANDLE) listen_, nullptr, 0, 0);
     if (!iocp_)
+    {
       WinSockWrapper::die("CreateIoCompletionPort(listener)");
+    }
 
     if (cfg_.threads == 0)
+    {
       cfg_.threads = 1;
+    }
     workers_.reserve(cfg_.threads);
     threads_.reserve(cfg_.threads);
     for (uint16_t i = 0; i < cfg_.threads; ++i)
@@ -939,7 +1015,9 @@ public:
       threads_.emplace_back(std::ref(workers_.back()));
     }
     for (auto& t : threads_)
+    {
       t.join();
+    }
   }
 
 private:
