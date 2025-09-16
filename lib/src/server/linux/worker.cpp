@@ -30,8 +30,12 @@ Worker::Worker(Server* owner_, fd_t listen_fd, const WorkerConfig& cfg)
   // Try SQPOLL + COOP; fallback if unsupported.
   io_uring_params p{};
   p.flags |= IORING_SETUP_SQPOLL;
+#ifdef IORING_SETUP_COOP_TASKRUN
   p.flags |= IORING_SETUP_COOP_TASKRUN;
+#endif
+#ifdef IORING_SETUP_TASKRUN_FLAG
   p.flags |= IORING_SETUP_TASKRUN_FLAG;
+#endif
   p.sq_thread_idle = 2000; // ms
   int rc = io_uring_queue_init_params(8192, &ring_, &p);
   if (rc != 0)
@@ -71,7 +75,7 @@ bool Worker::post_accept()
   return false;
 }
 
-void Worker::handle_accept(io_uring_cqe* cqe, EventData* data)
+void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
 {
 #ifdef DEBUG
   ts_std::cout << "Workflow::Accept completion for fd=" << data->fd << ", res=" << cqe->res << std::endl;
@@ -480,7 +484,7 @@ bool Worker::post_close(fd_t fd)
   return false;
 }
 
-void Worker::handle_close(io_uring_cqe* cqe, EventData* data)
+void Worker::handle_close(io_uring_cqe*, EventData* data)
 {
 #ifdef DEBUG
   ts_std::cout << "Workflow::Close/Closed completion for fd=" << data->fd << ", res=" << cqe->res << std::endl;

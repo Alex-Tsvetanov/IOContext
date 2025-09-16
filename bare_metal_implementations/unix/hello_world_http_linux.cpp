@@ -280,8 +280,8 @@ public:
     // Try SQPOLL + COOP; fallback if unsupported.
     io_uring_params p{};
     p.flags |= IORING_SETUP_SQPOLL;
-    p.flags |= IORING_SETUP_COOP_TASKRUN;
-    p.flags |= IORING_SETUP_TASKRUN_FLAG;
+    // p.flags |= IORING_SETUP_COOP_TASKRUN;
+    // p.flags |= IORING_SETUP_TASKRUN_FLAG;
     p.sq_thread_idle = 2000; // ms
     int rc = io_uring_queue_init_params(8192, &ring_, &p);
     if (rc != 0)

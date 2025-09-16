@@ -9,7 +9,7 @@ add_library(processing_machine STATIC src/common/processing_machine.cpp)
 target_include_directories(processing_machine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-add_compile_definitions(DEBUG)
+# add_compile_definitions(DEBUG)
 
 if(WIN32)
   add_library(iocontext

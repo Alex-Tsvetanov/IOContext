@@ -4,7 +4,9 @@
 #include "common/processing_machine.hpp"
 #include <functional>
 #include <sys/socket.h>
+#ifdef DEBUG
 #include "common/debug_log.hpp"
+#endif
 
 struct RequestProcessing
 {
@@ -16,17 +18,19 @@ struct RequestProcessing
 
   struct BatchedSendData
   {
-    std::vector<struct iovec> iov;
-    struct msghdr msg{};
+    std::vector<iovec> iov;
+    msghdr msg{};
   } batched_send_data;
 
   RequestProcessing() = default;
   ~RequestProcessing()
+#ifdef DEBUG
   {
     ts_std::cout << "RequestProcessing destroyed for " << this << std::endl;
-#ifdef DEBUG
-#endif
   }
+#else
+    = default;
+#endif
 };
 
 #endif // REQUEST_PROCESSING_H

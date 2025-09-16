@@ -31,7 +31,7 @@ BraceWrapping:
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: InlineOnly
-InsertBraces: true  # Allows omission only if one-liner and consistent
+# InsertBraces: true  # Allows omission only if one-liner and consistent
 
 # === Spaces ===
 SpaceAfterCStyleCast: true

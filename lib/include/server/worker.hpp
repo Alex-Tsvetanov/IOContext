@@ -32,13 +32,19 @@ public:
 #endif
   ~Worker();
 
-  void operator()() { run(); }
+  void operator()()
+  {
+    run();
+  }
 
   void run();
 
   // uint16_t post_initial_accepts();
 
-  Server* server() const { return owner; }
+  Server* server() const
+  {
+    return owner;
+  }
 
   bool post_accept();
   bool post_recv(PerClientStorage* c);

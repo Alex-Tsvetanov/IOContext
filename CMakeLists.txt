@@ -46,4 +46,4 @@ add_subdirectory(tests)
 
 add_subdirectory(competitors)
 
-add_subdirectory(bare_metal_implementations)
+# add_subdirectory(bare_metal_implementations)

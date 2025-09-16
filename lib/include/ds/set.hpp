@@ -20,52 +20,63 @@ public:
 
   TSSet(const TSSet&) = delete;
   TSSet& operator=(const TSSet&) = delete;
-  TSSet(TSSet&& other) noexcept { this->operator=(std::move(other)); }
-  TSSet& operator=(TSSet&& other) noexcept
-  {
-    if (this != &other)
-    {
-      std::unique_lock<std::mutex> lock1(mutex_, std::defer_lock);
-      std::unique_lock<std::mutex> lock2(other.mutex_, std::defer_lock);
-      std::lock(lock1, lock2); // Lock both mutexes without deadlock risk
-      set_ = std::move(other.set_);
-      if (set_.empty())
-      {
-        has_elements.clear();
-      }
-      other.has_elements.clear();
-    }
-    return *this;
-  }
+  TSSet(TSSet&& other) noexcept = delete;
+  TSSet& operator=(TSSet&& other) noexcept = delete;
+  // TSSet(TSSet&& other) noexcept { this->operator=(std::move(other)); }
+  // TSSet& operator=(TSSet&& other) noexcept
+  // {
+  //   if (this != &other)
+  //   {
+  //     std::unique_lock<std::mutex> lock1(mutex_, std::defer_lock);
+  //     std::unique_lock<std::mutex> lock2(other.mutex_, std::defer_lock);
+  //     std::lock(lock1, lock2); // Lock both mutexes without deadlock risk
+  //     set_ = std::move(other.set_);
+  //     if (set_.empty())
+  //     {
+  //       has_elements.clear();
+  //     }
+  //     other.has_elements.clear();
+  //   }
+  //   return *this;
+  // }
 
   void clear()
   {
     std::lock_guard<std::mutex> lock(mutex_);
+#ifdef DEBUG
     for (auto& item : set_)
     {
       ts_std::cout << "Clearing element from TSSet<" << typeid(T).name() << ">: " << item << " " << item.use_count()
                    << std::endl;
     }
+#endif
     set_.clear();
     has_elements.clear();
   }
 
   void add(std::shared_ptr<T> value)
   {
-#ifdef DEBUG
-    ts_std::cout << "Adding element to TSSet<" << typeid(T).name() << ">: " << value << " " << value.use_count()
-                 << std::endl;
-#endif // DEBUG
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto status = set_.insert(value);
-#ifdef DEBUG
-    if (!status.second)
     {
-      ts_std::cout << "Element already exists in TSSet: " << value << std::endl;
-      throw std::runtime_error("Element already exists in TSSet");
-    }
+#ifdef DEBUG
+      ts_std::cout << "Adding element to TSSet<" << typeid(T).name() << ">: " << value << " " << value.use_count()
+                   << std::endl;
 #endif // DEBUG
-    has_elements.test_and_set();
+      std::lock_guard<std::mutex> lock(mutex_);
+#ifdef DEBUG
+      auto status = set_.insert(value);
+      if (!status.second)
+      {
+        ts_std::cout << "Element already exists in TSSet: " << value << std::endl;
+        throw std::runtime_error("Element already exists in TSSet");
+      }
+#else
+      set_.insert(value);
+#endif // DEBUG
+      has_elements.test_and_set();
+    }
+#ifdef DEBUG
+    print();
+#endif // DEBUG
   }
 
   bool contains(std::shared_ptr<T> value)
@@ -81,12 +92,14 @@ public:
                  << std::endl;
 #endif
     std::lock_guard<std::mutex> lock(mutex_);
-    const size_t deleted = set_.erase(value);
 #ifdef DEBUG
+    const size_t deleted = set_.erase(value);
     if (deleted == 0)
     {
       throw std::runtime_error("Element not found in TSSet");
     }
+#else
+    set_.erase(value);
 #endif
     if (set_.empty())
     {
@@ -116,13 +129,25 @@ public:
   }
 #endif
 
-  void lock() { mutex_.lock(); }
+  void lock()
+  {
+    mutex_.lock();
+  }
 
-  void unlock() { mutex_.unlock(); }
+  void unlock()
+  {
+    mutex_.unlock();
+  }
 
-  const std::unordered_set<std::shared_ptr<T>>& unsafe_get_set() const { return set_; }
+  const std::unordered_set<std::shared_ptr<T>>& unsafe_get_set() const
+  {
+    return set_;
+  }
 
-  bool empty() const { return !has_elements.test(std::memory_order_relaxed); }
+  bool empty() const
+  {
+    return !has_elements.test(std::memory_order_relaxed);
+  }
 };
 
 #endif // SET_H
