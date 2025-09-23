@@ -10,7 +10,7 @@
 struct ServerConfig
 {
   uint16_t port = DEFAULT_PORT;
-  uint16_t threads = (uint16_t) std::max<unsigned>(1u, std::thread::hardware_concurrency());
+  unsigned threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
   uint16_t pending_accepts_per_worker = ACCEPTS_PER_WORKER;
   uint16_t max_keepalive_requests = 65000;
   bool reuseport = true;

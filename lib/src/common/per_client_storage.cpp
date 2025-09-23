@@ -15,34 +15,40 @@ void PerClientStorage::reset()
   current_request.reset();
   requests_needing_handlers.clear();
   requests_needing_responses.clear();
+  requests_in_flight.clear();
+  requests_ready.clear();
+  while (!completed_recv_buffs.empty())
+  {
+    completed_recv_buffs.pop();
+  }
 }
 
 void PerClientStorage::post(Workflow wf)
 {
-#ifdef DEBUG
-  ts_std::cout << "[Worker] Posting task " << int(wf) << " for fd=" << fd << std::endl;
-#endif
   switch (wf)
   {
   case Workflow::FindHandler:
-    while (!owner->post_find_handler(this))
-    {
-    }
+  case Workflow::GenerateResponse:
+  case Workflow::Parse:
+  case Workflow::RequestFlush:
+    owner->post_internal_event(this, wf);
+    break;
+  default:
+    break;
+  }
+}
+void PerClientStorage::handle(Workflow wf)
+{
+  switch (wf)
+  {
+  case Workflow::FindHandler:
+    find_handler();
     break;
   case Workflow::GenerateResponse:
-    while (!owner->post_generate_response(this))
-    {
-    }
+    generate_response();
     break;
   case Workflow::Parse:
-    while (!owner->post_parse(this))
-    {
-    }
-    break;
-  case Workflow::RequestFlush:
-    while (!owner->post_request_flush(this))
-    {
-    }
+    parse_step();
     break;
   default:
     break;
@@ -61,7 +67,8 @@ void PerClientStorage::parse_step()
   bool emit_generating_response = false;
   while (!completed_recv_buffs.empty())
   {
-    auto buff = completed_recv_buffs.pop();
+    auto buff = completed_recv_buffs.front();
+    completed_recv_buffs.pop();
     const char* seg = buff->data();
     size_t len = buff->size();
 #ifdef DEBUG
@@ -77,14 +84,14 @@ void PerClientStorage::parse_step()
 #endif
       if (this->current_request->parser.state == ProcessingState::error_state)
       {
-        this->requests_needing_handlers.add(this->current_request);
+        this->requests_needing_handlers.insert(this->current_request);
         emit_finding_handlers = true;
         this->current_request = std::make_shared<RequestProcessing>();
       }
       if (this->current_request->parser.state > ProcessingState::HTTP11::path &&
           !this->current_request->request_handler)
       {
-        this->requests_needing_handlers.add(this->current_request);
+        this->requests_needing_handlers.insert(this->current_request);
         emit_finding_handlers = true;
       }
       if (processed < len && this->current_request->parser.state == ProcessingState::completed_state)
@@ -92,7 +99,7 @@ void PerClientStorage::parse_step()
         if (this->current_request->request_handler)
         {
           emit_generating_response = true;
-          this->requests_needing_responses.add(this->current_request);
+          this->requests_needing_responses.insert(this->current_request);
         }
         this->current_request = std::make_shared<RequestProcessing>();
       }
@@ -118,10 +125,8 @@ void PerClientStorage::find_handler()
 #ifdef DEBUG
   ts_std::cout << "Finding handler for fd=" << this->fd << std::endl;
 #endif // DEBUG
-  this->requests_needing_handlers.lock();
-  const auto& requests = requests_needing_handlers.unsafe_get_set();
   bool emit_generating_response = false;
-  for (const auto& req : requests)
+  for (const auto& req : requests_needing_handlers)
   {
 #ifdef DEBUG
     ts_std::cout << "Request state: " << req->parser.state << std::endl;
@@ -132,7 +137,7 @@ void PerClientStorage::find_handler()
       if (it != owner->server()->get_routes().end())
       {
         req->request_handler = it->second;
-        requests_needing_responses.add(req);
+        requests_needing_responses.insert(req);
         emit_generating_response = true;
       }
       continue;
@@ -142,7 +147,7 @@ void PerClientStorage::find_handler()
     if (it != owner->server()->get_routes().end())
     {
       req->request_handler = it->second;
-      requests_needing_responses.add(req);
+      requests_needing_responses.insert(req);
       emit_generating_response = true;
     }
     else
@@ -151,26 +156,21 @@ void PerClientStorage::find_handler()
       if (it != owner->server()->get_routes().end())
       {
         req->request_handler = it->second;
-        requests_needing_responses.add(req);
+        requests_needing_responses.insert(req);
         emit_generating_response = (req->parser.state == ProcessingState::completed_state);
       }
     }
   }
-#ifdef DEBUG
-  ts_std::cout << "Emitting generate response: " << emit_generating_response << std::endl;
-#endif // DEBUG
-  this->requests_needing_handlers.unlock();
   requests_needing_handlers.clear();
   if (emit_generating_response)
   {
     this->post(Workflow::GenerateResponse);
   }
 }
+
 void PerClientStorage::generate_response()
 {
-  this->requests_needing_responses.lock();
-  const auto& requests = requests_needing_responses.unsafe_get_set();
-  for (auto& req : requests)
+  for (auto& req : requests_needing_responses)
   {
     std::invoke(req->request_handler, req->parser.req, req->parser.res);
 
@@ -210,10 +210,8 @@ void PerClientStorage::generate_response()
     }
     ts_std::cout << std::endl;
 #endif
-
-    this->requests_ready.add(req);
-    this->post(Workflow::RequestFlush);
   }
-  this->requests_needing_responses.unlock();
+  this->requests_ready.insert(this->requests_needing_responses.begin(), this->requests_needing_responses.end());
   this->requests_needing_responses.clear();
+  this->post(Workflow::RequestFlush);
 }

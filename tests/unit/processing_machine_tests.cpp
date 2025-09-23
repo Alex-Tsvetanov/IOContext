@@ -1,3 +1,4 @@
+#include <cstddef>
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
 #include "common/processing_machine.hpp"
@@ -13,8 +14,9 @@ TEST_CASE("ProcessingMachine parses HTTP 1.1 requests correctly", "[ProcessingMa
                           "Host: example.com\r\n"
                           "Connection: keep-alive\r\n"
                           "\r\n";
-    machine.on_segment(request, strlen(request));
+    size_t parsed = machine.on_segment(request, strlen(request));
 
+    REQUIRE(parsed == strlen(request));
     REQUIRE(machine.state == ProcessingState::HTTP11::body);
     REQUIRE(machine.req.method == "GET");
     REQUIRE(machine.req.path == "/index.html");
@@ -28,8 +30,9 @@ TEST_CASE("ProcessingMachine parses HTTP 1.1 requests correctly", "[ProcessingMa
     const char* request = "GET /index.html HTTP/1.1\r\n"
                           "Host: example.com\r\n"
                           "Connection: keep-alive"; // Missing final \r\n
-    machine.on_segment(request, strlen(request));
+    size_t parsed = machine.on_segment(request, strlen(request));
 
+    REQUIRE(parsed == strlen(request));
     REQUIRE(machine.state == ProcessingState::HTTP11::header_value);
   }
 
@@ -39,8 +42,9 @@ TEST_CASE("ProcessingMachine parses HTTP 1.1 requests correctly", "[ProcessingMa
                           "Host example.com\r\n" // Missing colon
                           "Connection: keep-alive\r\n"
                           "\r\n";
-    machine.on_segment(request, strlen(request));
+    size_t parsed = machine.on_segment(request, strlen(request));
 
+    REQUIRE(parsed == strlen(request));
     REQUIRE(machine.state == ProcessingState::error_state);
   }
 
@@ -51,8 +55,9 @@ TEST_CASE("ProcessingMachine parses HTTP 1.1 requests correctly", "[ProcessingMa
                           "Content-Length: 11\r\n"
                           "\r\n"
                           "Hello World";
-    machine.on_segment(request, strlen(request));
+    size_t parsed = machine.on_segment(request, strlen(request));
 
+    REQUIRE(parsed == strlen(request));
     REQUIRE(machine.state == ProcessingState::HTTP11::body);
     REQUIRE(machine.req.method == "POST");
     REQUIRE(machine.req.path == "/submit");
@@ -69,9 +74,10 @@ TEST_CASE("ProcessingMachine parses HTTP 1.1 requests correctly", "[ProcessingMa
                           "Host: example.com\r\n"
                           "Connection: keep-alive\r\n"
                           "\r\n";
-    machine.on_segment(request, strlen(request));
+    size_t parsed = machine.on_segment(request, strlen(request));
     machine.reset_parser();
 
+    REQUIRE(parsed == strlen(request));
     REQUIRE(machine.req.method.empty());
     REQUIRE(machine.req.path.empty());
     REQUIRE(machine.req.protocol.empty());

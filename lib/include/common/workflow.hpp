@@ -13,6 +13,7 @@ enum class Workflow : uint8_t
   Send,             // Send data
   RequestClose,     // Request to close the connection
   Closed,           // Closed the connection
+  Cancelling,       // Cancelling the connection
 };
 
 #endif // WORKFLOW_H

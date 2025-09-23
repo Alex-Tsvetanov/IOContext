@@ -17,7 +17,10 @@ public:
   void clear()
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.clear();
+    while (!queue_.empty())
+    {
+      queue_.pop();
+    }
     has_elements.clear();
   }
 

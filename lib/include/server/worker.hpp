@@ -32,37 +32,25 @@ public:
 #endif
   ~Worker();
 
-  void operator()()
-  {
-    run();
-  }
+  inline void operator()() { run(); }
 
   void run();
 
-  // uint16_t post_initial_accepts();
+  Server* server() const { return owner; }
 
-  Server* server() const
-  {
-    return owner;
-  }
-
-  bool post_accept();
-  bool post_recv(PerClientStorage* c);
-  bool post_parse(PerClientStorage* c);
-  bool post_find_handler(PerClientStorage* c);
-  bool post_generate_response(PerClientStorage* c);
-  bool post_request_flush(PerClientStorage* c);
+  void post_accept();
+  void post_recv(PerClientStorage* c);
   void post_send(PerClientStorage* c);
-  bool post_close(fd_t fd);
+  void post_close(fd_t fd);
+
+  void post_internal_event(PerClientStorage*, Workflow);
 
   void handle_accept(io_uring_cqe*, EventData*);
   void handle_recv(io_uring_cqe*, EventData*);
-  void handle_parse(EventData*);             // internal events do not need io_uring_cqe
-  void handle_find_handler(EventData*);      // internal events do not need io_uring_cqe
-  void handle_generate_response(EventData*); // internal events do not need io_uring_cqe
-  void handle_request_flush(EventData*);     // internal events do not need io_uring_cqe
   void handle_send(io_uring_cqe*, EventData*);
   void handle_close(io_uring_cqe*, EventData*);
+
+  void handle_internal_event(EventData*);
 
   fd_t listen_fd_;
   WorkerConfig cfg_;
@@ -75,21 +63,19 @@ public:
   int ring_fd_{-1};
   uint16_t need_submit_{0};
 
-  // --- multishot accept state ---
+// --- multishot accept state ---
+#ifdef IORING_ACCEPT_MULTISHOT
   bool use_ms_accept_{true};
+#else
+  bool use_ms_accept_{false};
+#endif
   bool ms_accept_armed_{false};
 
-public:
   // --- multishot recv + provided buffers ---
   static constexpr int BUF_SZ = (1 << 10);
 
 private:
-  std::unique_ptr<char[]> buf_pool_;
-  bool have_buf_pool_{false};
-  bool use_ms_recv_{true};
-
-  inline io_uring_sqe* get_sqe_or_submit();
-  // void init_buffer_pool();
+  inline io_uring_sqe* new_event_for_posting();
 #endif
 };
 

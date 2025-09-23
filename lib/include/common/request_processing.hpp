@@ -23,14 +23,7 @@ struct RequestProcessing
   } batched_send_data;
 
   RequestProcessing() = default;
-  ~RequestProcessing()
-#ifdef DEBUG
-  {
-    ts_std::cout << "RequestProcessing destroyed for " << this << std::endl;
-  }
-#else
-    = default;
-#endif
+  ~RequestProcessing() = default;
 };
 
 #endif // REQUEST_PROCESSING_H

@@ -40,36 +40,32 @@ namespace ts_std
       // Handle the common ones specially
       if (m == static_cast<manip_fn>(std::endl<char, std::char_traits<char>>))
       {
-        flush_unlocked(/*with_newline=*/true); // writes newline + flushes
+        flush_unlocked(/*with_stacktrace=*/true); // writes newline + flushes
       }
       else if (m == static_cast<manip_fn>(std::flush<char, std::char_traits<char>>))
       {
-        flush_unlocked(/*with_newline=*/false); // just flushes
+        flush_unlocked(/*with_stacktrace=*/false); // just flushes
       }
       else
       {
         // For other no-arg ostream manipulators, preserve ordering:
-        flush_unlocked(/*with_newline=*/false);
+        flush_unlocked(/*with_stacktrace=*/false);
         m(out); // forward to the underlying stream
       }
       return *this;
     }
 
   private:
-    void flush_unlocked(bool with_newline)
+    void flush_unlocked(bool with_stacktrace)
     {
       const auto tid = std::this_thread::get_id();
       auto& ss = thread_logs_[tid];
 
-      out << "[Thread " << tid << "]\n" << boost::stacktrace::stacktrace() << "\n[Thread " << tid << "] " << ss.str();
-      if (with_newline)
+      if (with_stacktrace)
       {
-        out << std::endl; // newline + flush
+        out << "[Thread " << tid << "] " << boost::stacktrace::stacktrace();
       }
-      else
-      {
-        out << std::flush;
-      }
+      out << "\n[Thread " << tid << "] " << ss.str() << std::endl;
 
       // Clear the per-thread buffer so we don't reprint old content
       ss.str(std::string{});

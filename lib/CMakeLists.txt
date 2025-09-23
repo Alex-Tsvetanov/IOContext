@@ -10,29 +10,11 @@ target_include_directories(processing_machine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 # add_compile_definitions(DEBUG)
-
-if(WIN32)
-  add_library(iocontext
-    src/common/per_client_storage.cpp
-    src/common/socket.cpp
-    src/server/windows/worker.cpp
-  )
-elseif(APPLE)
-else() # Linux
-  find_library(LIBURING_LIBRARY NAMES uring REQUIRED)
-  if(LIBURING_LIBRARY)
-    message(STATUS "Found liburing: ${LIBURING_LIBRARY}")
-  else()
-    message(FATAL_ERROR "liburing not found. Please install liburing.")
-  endif()
-
-  add_library(iocontext
-    src/common/per_client_storage.cpp
-    src/common/socket.cpp
-    src/server/linux/worker.cpp
-  )
-  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY} Boost::system)
-endif()
+add_library(iocontext STATIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/common/per_client_storage.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/common/socket.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/server/linux/worker.cpp
+)
 
 target_link_libraries(iocontext PUBLIC processing_machine)
 
@@ -50,12 +32,17 @@ if(WIN32)
     _WIN32_WINNT=0x0600
     WIN32_LEAN_AND_MEAN
   )
-endif()
-
-# Link libraries
-if(WIN32)
   target_link_libraries(iocontext PRIVATE
     Ws2_32.lib
     Mswsock.lib
   )
+elseif(APPLE)
+else() # Linux
+  find_library(LIBURING_LIBRARY NAMES uring REQUIRED)
+  if(LIBURING_LIBRARY)
+    message(STATUS "Found liburing: ${LIBURING_LIBRARY}")
+  else()
+    message(FATAL_ERROR "liburing not found. Please install liburing.")
+  endif()
+  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY} Boost::system)
 endif()
