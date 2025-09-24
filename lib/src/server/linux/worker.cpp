@@ -424,7 +424,17 @@ void Worker::run()
         break;
       } // switch
       io_uring_cqe_seen(&ring_, cqe);
-      // delete data;
+      switch (data->op)
+      {
+      case Workflow::Accept: {
+        if (!use_ms_accept_)
+          delete data;
+        break;
+      }
+      default:
+       delete data;
+       break;
+      }
     }
 
     if (need_submit_)
