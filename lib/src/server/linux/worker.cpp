@@ -194,8 +194,8 @@ void Worker::post_send(PerClientStorage* c)
     io_uring_prep_sendmsg(sqe, c->fd, &req->batched_send_data.msg, MSG_NOSIGNAL);
     io_uring_sqe_set_data(sqe, ev);
     need_submit_++;
-    c->requests_in_flight.insert(req);
   }
+  c->requests_ready.clear();
 }
 
 void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
@@ -206,12 +206,12 @@ void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
     return;
   }
 
+  std::shared_ptr<RequestProcessing> req = std::static_pointer_cast<RequestProcessing>(data->hold);
+
   if (cqe->res < 0)
   {
     if (cqe->res == -EAGAIN || cqe->res == -EWOULDBLOCK)
     {
-      std::shared_ptr<RequestProcessing> req = std::static_pointer_cast<RequestProcessing>(data->hold);
-      c->requests_in_flight.erase(req);
       c->requests_ready.insert(req);
       post_send(c);
       return;
@@ -220,8 +220,6 @@ void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
     post_close(data->fd);
     return;
   }
-
-  std::shared_ptr<RequestProcessing> req = std::static_pointer_cast<RequestProcessing>(data->hold);
 
   size_t sent = static_cast<size_t>(cqe->res);
 
@@ -245,34 +243,31 @@ void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
       off -= iov[i].iov_len;
       ++i;
     }
+
     if (i < cnt)
     {
       // trim first unsent iovec
       iov[i].iov_base = static_cast<char*>(iov[i].iov_base) + off;
       iov[i].iov_len -= off;
+
       // point msg to the remaining tail
       req->batched_send_data.msg.msg_iov = &iov[i];
       req->batched_send_data.msg.msg_iovlen = cnt - i;
 
       // re-submit the remaining part; keep tx_inflight intact
-      if (auto* sqe = new_event_for_posting())
-      {
-        EventData* ev = new EventData;
-        ev->fd = c->fd;
-        ev->op = Workflow::Send;
-        ev->hold = req;
-        io_uring_prep_sendmsg(sqe, c->fd, &req->batched_send_data.msg, MSG_NOSIGNAL);
-        io_uring_sqe_set_data(sqe, ev);
-        need_submit_++;
-        return;
-      }
-      // If we fail to get an SQE, fall back to POLLOUT so we don't lose progress
+      auto* sqe = new_event_for_posting();
+      EventData* ev = new EventData;
+      ev->fd = c->fd;
+      ev->op = Workflow::Send;
+      ev->hold = req;
+      io_uring_prep_sendmsg(sqe, c->fd, &req->batched_send_data.msg, MSG_NOSIGNAL);
+      io_uring_sqe_set_data(sqe, ev);
+      need_submit_++;
       return;
     }
   }
 
   // Full batch sent
-  c->requests_in_flight.erase(req);
   c->send_inflight = false;
 
   if (c->on_send_completed())
@@ -290,26 +285,30 @@ void Worker::post_close(fd_t fd)
 {
   auto* c = table_.get(fd);
   if (!c)
+  {
     return;
+  }
 
   c->closing = true;
-  if (auto* sqe = new_event_for_posting())
+
   {
+    auto* sqe = new_event_for_posting();
     EventData* ev = new EventData;
     ev->fd = fd;
     ev->op = Workflow::Cancelling;
     ev->hold = nullptr;
 
     io_uring_prep_cancel_fd(sqe, fd, IORING_ASYNC_CANCEL_ALL);
-    io_uring_sqe_set_flags(sqe, IOSQE_IO_HARDLINK);
     io_uring_sqe_set_data(sqe, ev);
   }
-  if (auto* sqe = new_event_for_posting())
+
   {
+    auto* sqe = new_event_for_posting();
     EventData* ev = new EventData;
     ev->fd = fd;
     ev->op = Workflow::Closed;
     ev->hold = nullptr;
+
     io_uring_prep_close(sqe, fd);
     io_uring_sqe_set_data(sqe, ev);
   }
@@ -428,12 +427,15 @@ void Worker::run()
       {
       case Workflow::Accept: {
         if (!use_ms_accept_)
+        {
           delete data;
+        }
         break;
       }
-      default:
-       delete data;
-       break;
+      default: {
+        delete data;
+        break;
+      }
       }
     }
 

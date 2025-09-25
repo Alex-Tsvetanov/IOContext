@@ -15,7 +15,6 @@ void PerClientStorage::reset()
   current_request.reset();
   requests_needing_handlers.clear();
   requests_needing_responses.clear();
-  requests_in_flight.clear();
   requests_ready.clear();
   while (!completed_recv_buffs.empty())
   {
@@ -117,7 +116,7 @@ void PerClientStorage::parse_step()
 
 bool PerClientStorage::on_send_completed()
 {
-  return this->requests_ready.empty() && this->requests_in_flight.empty();
+  return this->requests_ready.empty();
 }
 
 void PerClientStorage::find_handler()

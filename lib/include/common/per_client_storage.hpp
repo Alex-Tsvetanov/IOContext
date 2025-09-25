@@ -54,7 +54,6 @@ private:
   std::queue<std::shared_ptr<std::vector<char>>> completed_recv_buffs;
 
   // TX
-  std::set<std::shared_ptr<RequestProcessing>> requests_in_flight;
   std::set<std::shared_ptr<RequestProcessing>> requests_ready;
   bool send_inflight{false};
 };
