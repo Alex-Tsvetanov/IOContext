@@ -1,5 +1,4 @@
 #include "common/request_processing.hpp"
-#include "ds/set.hpp"
 #include <cstddef>
 #include <cstring>
 #include <iostream>
@@ -27,9 +26,18 @@ Worker::Worker(Server* owner_, fd_t listen_fd, const WorkerConfig& cfg)
 #ifdef IORING_SETUP_SUBMIT_ALL
   p.flags |= IORING_SETUP_SUBMIT_ALL;
 #endif
-  // #ifdef IORING_SETUP_SINGLE_ISSUER
-  //   p.flags |= IORING_SETUP_SINGLE_ISSUER;
-  // #endif
+#ifdef IORING_SETUP_HYBRID_IOPOLL
+  p.flags |= IORING_SETUP_HYBRID_IOPOLL;
+#endif
+#ifdef IORING_SETUP_DEFER_TASKRUN
+  p.flags |= IORING_SETUP_DEFER_TASKRUN;
+#endif
+#ifdef IORING_SETUP_COOP_TASKRUN
+  p.flags |= IORING_SETUP_COOP_TASKRUN;
+#endif
+#ifdef IORING_SETUP_TASKRUN_FLAG
+  p.flags |= IORING_SETUP_TASKRUN_FLAG;
+#endif
   if (int rc = io_uring_queue_init_params(8192, &ring_, &p); rc != 0)
   {
     io_uring_params zero{};
@@ -81,12 +89,13 @@ void Worker::post_accept()
   ev->op = Workflow::Accept;
   ev->hold = nullptr;
 
-  io_uring_prep_accept(sqe, listen_fd_, nullptr, nullptr, 0);
+  io_uring_prep_accept(sqe, listen_fd_, nullptr, nullptr, SOCK_NONBLOCK);
   io_uring_sqe_set_data(sqe, ev);
 
   if (use_ms_accept_)
   {
     sqe->ioprio |= IORING_ACCEPT_MULTISHOT;
+    ms_accept_armed_ = true;
   }
   need_submit_++;
 }
@@ -105,8 +114,6 @@ void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
   }
 
   fd_t cfd = cqe->res;
-  set_nonblock(cfd);
-  set_tcp_opts(cfd);
 
   auto* c = table_.add(cfd);
   c->keepalive_limit = cfg_.max_keepalive_requests;
@@ -114,19 +121,28 @@ void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
 
   post_recv(c);
 
-  if ((cqe->flags & IORING_CQE_F_MORE) == 0)
+  if (use_ms_accept_)
   {
-    use_ms_accept_ = true;
-    ms_accept_armed_ = false;
+    if ((cqe->flags & IORING_CQE_F_MORE) == 0)
+    {
+      // The multishot accept is no longer armed; re-arm it once.
+      ms_accept_armed_ = false;
+      post_accept();
+    }
+    // If F_MORE is set: do not post another accept (it’s still armed).
   }
-  post_accept();
+  else
+  {
+    // Single-shot mode: post one new accept per completion.
+    post_accept();
+  }
 }
 
 void Worker::post_recv(PerClientStorage* c)
 {
   auto* sqe = new_event_for_posting();
 
-  TSSet<std::vector<char>>::element newbuf = std::make_shared<std::vector<char>>(Worker::BUF_SZ);
+  std::shared_ptr<std::vector<char>> newbuf = std::make_shared<std::vector<char>>(Worker::BUF_SZ);
 
   EventData* ev = new EventData;
   ev->fd = c->fd;
@@ -164,7 +180,7 @@ void Worker::handle_recv(io_uring_cqe* cqe, EventData* data)
                << ", data ptr=" << data->hold.get() << " " << data->hold.use_count() << std::flush;
 #endif // DEBUG
 
-  TSSet<std::vector<char>>::element hold = std::static_pointer_cast<std::vector<char>>(data->hold);
+  std::shared_ptr<std::vector<char>> hold = std::static_pointer_cast<std::vector<char>>(data->hold);
   hold->resize(cqe->res);
 #ifdef DEBUG
   ts_std::cout << "Data received at: " << hold.get() << " " << hold.use_count();
@@ -254,15 +270,7 @@ void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
       req->batched_send_data.msg.msg_iov = &iov[i];
       req->batched_send_data.msg.msg_iovlen = cnt - i;
 
-      // re-submit the remaining part; keep tx_inflight intact
-      auto* sqe = new_event_for_posting();
-      EventData* ev = new EventData;
-      ev->fd = c->fd;
-      ev->op = Workflow::Send;
-      ev->hold = req;
-      io_uring_prep_sendmsg(sqe, c->fd, &req->batched_send_data.msg, MSG_NOSIGNAL);
-      io_uring_sqe_set_data(sqe, ev);
-      need_submit_++;
+      post_send(c);
       return;
     }
   }
@@ -286,10 +294,12 @@ void Worker::post_close(fd_t fd)
   auto* c = table_.get(fd);
   if (!c)
   {
+    table_.erase(fd);
+  }
+  else
+  {
     return;
   }
-
-  c->closing = true;
 
   {
     auto* sqe = new_event_for_posting();
@@ -310,14 +320,13 @@ void Worker::post_close(fd_t fd)
     ev->hold = nullptr;
 
     io_uring_prep_close(sqe, fd);
+    io_uring_sqe_set_flags(sqe, IOSQE_IO_HARDLINK);
     io_uring_sqe_set_data(sqe, ev);
   }
 }
 
-void Worker::handle_close([[maybe_unused]] io_uring_cqe* cqe, EventData* data)
-{
-  table_.erase(data->fd);
-}
+void Worker::handle_close([[maybe_unused]] io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
+{}
 
 void Worker::post_internal_event(PerClientStorage* c, Workflow wf)
 {

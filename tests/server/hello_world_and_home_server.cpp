@@ -4,7 +4,7 @@ int main()
 {
   ServerConfig config;
   config.port = 8080;
-  config.threads = std::thread::hardware_concurrency() / 2;
+  config.threads = std::thread::hardware_concurrency();
 
   Server server(config);
 

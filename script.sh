@@ -27,3 +27,9 @@ for i in `seq 1 5` ; do
     echo "epoll";
     MonitorBenchmark ":8082" epoll;
 done
+
+cmake --build build --config Release && \
+sudo systemctl restart myserver && \
+sudo strace -f \
+    -e trace=io_uring_enter,io_uring_setup,io_uring_register,accept4,close,shutdown,setsockopt,getsockopt \
+    -p `sudo systemctl status myserver | grep Main\ PID: | cut -d' ' -f6` -o strace_output.log

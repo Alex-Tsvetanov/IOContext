@@ -35,7 +35,6 @@ using fd_t = int;
 fd_t make_listener(uint16_t port, bool reuseport) noexcept;
 int set_nonblock(fd_t fd) noexcept;
 void set_tcp_opts(fd_t fd) noexcept;
-io_uring_sqe* get_sqe_or_submit(io_uring& ring) noexcept;
 #endif
 
 #endif // SOCKET_H

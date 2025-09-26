@@ -1,0 +1,206 @@
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 shutdown(3, SHUT_RD)              = 0
+36688 getsockopt(3, SOL_SOCKET, SO_SNDBUF, [212992], [4]) = 0
+36688 setsockopt(3, SOL_SOCKET, SO_SNDBUF, [8388608], 4) = 0
+36688 getsockopt(3, SOL_SOCKET, SO_SNDBUF, [425984], [4]) = 0
+36688 setsockopt(3, SOL_SOCKET, SO_SNDBUFFORCE, [8388608], 4) = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(4)                          = 0
+36688 close(4)                          = 0
+36688 close(6)                          = 0
+36688 close(4)                          = 0
+36688 close(6)                          = 0
+36688 close(4)                          = 0
+36688 close(5)                          = 0
+36688 close(6)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 close(3)                          = 0
+36688 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(3, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(4, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(4, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(5, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(5, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(6, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(6, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(7, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(7, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(8, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(8, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(9, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(9, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(10, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(10, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(11, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(11, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(12, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(12, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(13, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(13, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 setsockopt(14, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+36688 setsockopt(14, SOL_SOCKET, SO_REUSEPORT, [1], 4) = 0
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 15
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0 <unfinished ...>
+36701 io_uring_enter(15, 1, 0, 0, NULL, 8 <unfinished ...>
+36688 <... io_uring_setup resumed>, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 16
+36701 <... io_uring_enter resumed>)     = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0 <unfinished ...>
+36702 io_uring_enter(16, 1, 0, 0, NULL, 8 <unfinished ...>
+36688 <... io_uring_setup resumed>, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 17
+36702 <... io_uring_enter resumed>)     = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0 <unfinished ...>
+36703 io_uring_enter(17, 1, 0, 0, NULL, 8 <unfinished ...>
+36688 <... io_uring_setup resumed>, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 19
+36703 <... io_uring_enter resumed>)     = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 18
+36704 io_uring_enter(19, 1, 0, 0, NULL, 8) = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0 <unfinished ...>
+36705 io_uring_enter(18, 1, 0, 0, NULL, 8) = 1
+36688 <... io_uring_setup resumed>, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 20
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0 <unfinished ...>
+36706 io_uring_enter(20, 1, 0, 0, NULL, 8 <unfinished ...>
+36688 <... io_uring_setup resumed>, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 21
+36706 <... io_uring_enter resumed>)     = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 22
+36707 io_uring_enter(21, 1, 0, 0, NULL, 8) = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 23
+36708 io_uring_enter(22, 1, 0, 0, NULL, 8) = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 24
+36709 close(25)                         = 0
+36709 io_uring_enter(23, 1, 0, 0, NULL, 8) = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 25
+36710 io_uring_enter(24, 1, 0, 0, NULL, 8) = 1
+36711 io_uring_enter(25, 1, 0, 0, NULL, 8) = 1
+36688 io_uring_setup(8192, {flags=IORING_SETUP_SUBMIT_ALL|IORING_SETUP_NO_SQARRAY, sq_thread_cpu=0, sq_thread_idle=0, sq_entries=8192, cq_entries=16384, features=IORING_FEAT_SINGLE_MMAP|IORING_FEAT_NODROP|IORING_FEAT_SUBMIT_STABLE|IORING_FEAT_RW_CUR_POS|IORING_FEAT_CUR_PERSONALITY|IORING_FEAT_FAST_POLL|IORING_FEAT_POLL_32BITS|IORING_FEAT_SQPOLL_NONFIXED|IORING_FEAT_EXT_ARG|IORING_FEAT_NATIVE_WORKERS|IORING_FEAT_RSRC_TAGS|IORING_FEAT_CQE_SKIP|IORING_FEAT_LINKED_FILE|IORING_FEAT_REG_REG_RING|IORING_FEAT_RECVSEND_BUNDLE|IORING_FEAT_MIN_TIMEOUT|IORING_FEAT_RW_ATTR|IORING_FEAT_NO_IOWAIT, sq_off={head=0, tail=4, ring_mask=16, ring_entries=24, flags=36, dropped=32, array=0, user_addr=0}, cq_off={head=8, tail=12, ring_mask=20, ring_entries=28, overflow=44, cqes=64, flags=40, user_addr=0}}) = 26
+36712 io_uring_enter(26, 1, 0, 0, NULL, 8) = 1
+36701 setsockopt(27, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36701 io_uring_enter(15, 1, 0, 0, NULL, 8) = 1
+36701 io_uring_enter(15, 2, 0, 0, NULL, 8 <unfinished ...>
+36712 setsockopt(30, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36709 setsockopt(29, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36708 setsockopt(28, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36701 <... io_uring_enter resumed>)     = 2
+36712 <... setsockopt resumed>)         = 0
+36709 <... setsockopt resumed>)         = 0
+36708 <... setsockopt resumed>)         = 0
+36708 io_uring_enter(22, 1, 0, 0, NULL, 8 <unfinished ...>
+36709 io_uring_enter(23, 1, 0, 0, NULL, 8 <unfinished ...>
+36711 setsockopt(33, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36708 <... io_uring_enter resumed>)     = 1
+36711 <... setsockopt resumed>)         = 0
+36709 <... io_uring_enter resumed>)     = 1
+36711 io_uring_enter(25, 1, 0, 0, NULL, 8) = 1
+36710 setsockopt(32, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 setsockopt(36, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36711 io_uring_enter(25, 2, 0, 0, NULL, 8 <unfinished ...>
+36710 <... setsockopt resumed>)         = 0
+36705 <... setsockopt resumed>)         = 0
+36711 <... io_uring_enter resumed>)     = 2
+36710 io_uring_enter(24, 1, 0, 0, NULL, 8 <unfinished ...>
+36708 setsockopt(35, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36710 <... io_uring_enter resumed>)     = 1
+36709 setsockopt(38, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 io_uring_enter(18, 1, 0, 0, NULL, 8 <unfinished ...>
+36708 <... setsockopt resumed>)         = 0
+36709 <... setsockopt resumed>)         = 0
+36705 <... io_uring_enter resumed>)     = 1
+36709 io_uring_enter(23, 3, 0, 0, NULL, 8 <unfinished ...>
+36708 io_uring_enter(22, 3, 0, 0, NULL, 8 <unfinished ...>
+36712 io_uring_enter(26, 1, 0, 0, NULL, 8 <unfinished ...>
+36707 setsockopt(31, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 io_uring_enter(18, 2, 0, 0, NULL, 8 <unfinished ...>
+36712 <... io_uring_enter resumed>)     = 1
+36709 <... io_uring_enter resumed>)     = 3
+36708 <... io_uring_enter resumed>)     = 3
+36707 <... setsockopt resumed>)         = 0
+36712 io_uring_enter(26, 2, 0, 0, NULL, 8 <unfinished ...>
+36710 setsockopt(34, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36709 io_uring_enter(23, 2, 0, 0, NULL, 8 <unfinished ...>
+36708 io_uring_enter(22, 3, 0, 0, NULL, 8 <unfinished ...>
+36705 <... io_uring_enter resumed>)     = 2
+36712 <... io_uring_enter resumed>)     = 2
+36710 <... setsockopt resumed>)         = 0
+36709 <... io_uring_enter resumed>)     = 2
+36708 <... io_uring_enter resumed>)     = 3
+36707 io_uring_enter(21, 1, 0, 0, NULL, 8) = 1
+36707 io_uring_enter(21, 2, 0, 0, NULL, 8) = 2
+36704 setsockopt(29, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36704 io_uring_enter(19, 1, 0, 0, NULL, 8) = 1
+36704 io_uring_enter(19, 2, 0, 0, NULL, 8) = 2
+36710 setsockopt(37, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36710 io_uring_enter(24, 4, 0, 0, NULL, 8) = 4
+36710 io_uring_enter(24, 5, 0, 0, NULL, 8) = 5
+36709 setsockopt(39, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36709 io_uring_enter(23, 4, 0, 0, NULL, 8) = 4
+36711 setsockopt(38, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 setsockopt(41, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36711 <... setsockopt resumed>)         = 0
+36711 io_uring_enter(25, 4, 0, 0, NULL, 8 <unfinished ...>
+36705 <... setsockopt resumed>)         = 0
+36711 <... io_uring_enter resumed>)     = 4
+36709 setsockopt(40, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 io_uring_enter(18, 4, 0, 0, NULL, 8 <unfinished ...>
+36709 <... setsockopt resumed>)         = 0
+36705 <... io_uring_enter resumed>)     = 4
+36709 io_uring_enter(23, 4, 0, 0, NULL, 8 <unfinished ...>
+36705 io_uring_enter(18, 3, 0, 0, NULL, 8 <unfinished ...>
+36711 setsockopt(33, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36709 <... io_uring_enter resumed>)     = 4
+36705 <... io_uring_enter resumed>)     = 3
+36702 setsockopt(43, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36711 <... setsockopt resumed>)         = 0
+36709 io_uring_enter(23, 2, 0, 0, NULL, 8 <unfinished ...>
+36707 setsockopt(42, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36702 <... setsockopt resumed>)         = 0
+36711 io_uring_enter(25, 4, 0, 0, NULL, 8 <unfinished ...>
+36709 <... io_uring_enter resumed>)     = 2
+36707 <... setsockopt resumed>)         = 0
+36711 <... io_uring_enter resumed>)     = 4
+36702 io_uring_enter(16, 1, 0, 0, NULL, 8 <unfinished ...>
+36705 setsockopt(39, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36702 <... io_uring_enter resumed>)     = 1
+36705 <... setsockopt resumed>)         = 0
+36705 io_uring_enter(18, 2, 0, 0, NULL, 8 <unfinished ...>
+36702 io_uring_enter(16, 2, 0, 0, NULL, 8 <unfinished ...>
+36711 setsockopt(45, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36705 <... io_uring_enter resumed>)     = 2
+36711 <... setsockopt resumed>)         = 0
+36705 io_uring_enter(18, 3, 0, 0, NULL, 8 <unfinished ...>
+36702 <... io_uring_enter resumed>)     = 2
+36711 io_uring_enter(25, 5, 0, 0, NULL, 8 <unfinished ...>
+36705 <... io_uring_enter resumed>)     = 3
+36711 <... io_uring_enter resumed>)     = 5
+36707 io_uring_enter(21, 4, 0, 0, NULL, 8 <unfinished ...>
+36703 setsockopt(47, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36707 <... io_uring_enter resumed>)     = 4
+36712 setsockopt(46, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36703 io_uring_enter(17, 1, 0, 0, NULL, 8 <unfinished ...>
+36712 <... setsockopt resumed>)         = 0
+36703 <... io_uring_enter resumed>)     = 1
+36712 io_uring_enter(26, 4, 0, 0, NULL, 8 <unfinished ...>
+36703 io_uring_enter(17, 2, 0, 0, NULL, 8 <unfinished ...>
+36712 <... io_uring_enter resumed>)     = 4
+36703 <... io_uring_enter resumed>)     = 2
+36712 io_uring_enter(26, 3, 0, 0, NULL, 8 <unfinished ...>
+36707 setsockopt(36, SOL_TCP, TCP_NODELAY, [1], 4 <unfinished ...>
+36712 <... io_uring_enter resumed>)     = 3
+36707 <... setsockopt resumed>)         = 0
+36707 setsockopt(44, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+36707 io_uring_enter(21, 5, 0, 0, NULL, 8) = 5
+36707 io_uring_enter(21, 5, 0, 0, NULL, 8) = 5
+36711 io_uring_enter(25, 4, 0, 0, NULL, 8) = 4

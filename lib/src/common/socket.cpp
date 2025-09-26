@@ -16,12 +16,8 @@ void set_tcp_opts(fd_t fd) noexcept
 {
   int nd = 1;
   (void) setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nd, sizeof(nd));
-#ifdef TCP_QUICKACK
-  int qa = 1;
-  (void) setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &qa, sizeof(qa));
-#endif
-  int sndbuf = 256 * 1024;
-  (void) setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+  // int sndbuf = 256 * 1024;
+  // (void) setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
 }
 
 fd_t make_listener(uint16_t port, bool reuseport) noexcept
@@ -55,22 +51,4 @@ fd_t make_listener(uint16_t port, bool reuseport) noexcept
   }
   set_nonblock(s);
   return s;
-}
-io_uring_sqe* get_sqe_or_submit(io_uring& ring) noexcept
-{
-  if (auto* sqe = io_uring_get_sqe(&ring))
-  {
-    io_uring_sqe_set_data(sqe, nullptr);
-    return sqe;
-  }
-  io_uring_submit(&ring);
-  if (auto* sqe2 = io_uring_get_sqe(&ring))
-  {
-    io_uring_sqe_set_data(sqe2, nullptr);
-    return sqe2;
-  }
-  io_uring_submit_and_wait(&ring, 1);
-  auto* sqe = io_uring_get_sqe(&ring);
-  io_uring_sqe_set_data(sqe, nullptr);
-  return sqe;
 }
