@@ -31,7 +31,9 @@ void PerClientStorage::post(Workflow wf)
   case Workflow::GenerateResponse:
   case Workflow::Parse:
   case Workflow::RequestFlush:
+#ifndef __APPLE__
     owner->post_internal_event(this, wf);
+#endif
     break;
   default:
     break;

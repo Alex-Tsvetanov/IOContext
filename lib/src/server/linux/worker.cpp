@@ -1,5 +1,4 @@
 #include "common/request_processing.hpp"
-#include "ds/set.hpp"
 #include <cstddef>
 #include <cstring>
 #include <iostream>
@@ -126,7 +125,7 @@ void Worker::post_recv(PerClientStorage* c)
 {
   auto* sqe = new_event_for_posting();
 
-  TSSet<std::vector<char>>::element newbuf = std::make_shared<std::vector<char>>(Worker::BUF_SZ);
+  std::shared_ptr<std::vector<char>> newbuf = std::make_shared<std::vector<char>>(Worker::BUF_SZ);
 
   EventData* ev = new EventData;
   ev->fd = c->fd;
@@ -164,7 +163,7 @@ void Worker::handle_recv(io_uring_cqe* cqe, EventData* data)
                << ", data ptr=" << data->hold.get() << " " << data->hold.use_count() << std::flush;
 #endif // DEBUG
 
-  TSSet<std::vector<char>>::element hold = std::static_pointer_cast<std::vector<char>>(data->hold);
+  std::shared_ptr<std::vector<char>> hold = std::static_pointer_cast<std::vector<char>>(data->hold);
   hold->resize(cqe->res);
 #ifdef DEBUG
   ts_std::cout << "Data received at: " << hold.get() << " " << hold.use_count();
@@ -196,6 +195,7 @@ void Worker::post_send(PerClientStorage* c)
     need_submit_++;
     c->requests_in_flight.insert(req);
   }
+  c->requests_ready.clear();
 }
 
 void Worker::handle_send(io_uring_cqe* cqe, EventData* data)

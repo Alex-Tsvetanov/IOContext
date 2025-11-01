@@ -29,6 +29,21 @@ else()
     endif()
 endif()
 
+# Enable coroutine support based on the compiler
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # For GCC 10+, no flag is required, only -std=c++20
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10)
+        add_compile_options(-fcoroutines)
+    endif()
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # For Clang < 13 we need -fcoroutines-ts
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
+        add_compile_options(-fcoroutines-ts)
+    endif()
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # Nothing extra needed, /std:c++20 enables coroutines
+endif()
+
 # Set up OpenSSL
 find_package(OpenSSL REQUIRED)
 # Set up nghttp2
@@ -39,11 +54,19 @@ set(ENABLE_STATIC_LIB ON CACHE BOOL "" FORCE)
 set(ENABLE_SHARED_LIB OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/nghttp2)
 
+# Set up Boost
+# find_package(Boost REQUIRED COMPONENTS system)
+
+# Set up threads
+find_package(Threads REQUIRED)
+
 add_subdirectory(lib)
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/external/catch2)
 add_subdirectory(tests)
 
-add_subdirectory(competitors)
+add_subdirectory(playground)
+
+# add_subdirectory(competitors)
 
 # add_subdirectory(bare_metal_implementations)

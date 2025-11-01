@@ -56,21 +56,3 @@ fd_t make_listener(uint16_t port, bool reuseport) noexcept
   set_nonblock(s);
   return s;
 }
-io_uring_sqe* get_sqe_or_submit(io_uring& ring) noexcept
-{
-  if (auto* sqe = io_uring_get_sqe(&ring))
-  {
-    io_uring_sqe_set_data(sqe, nullptr);
-    return sqe;
-  }
-  io_uring_submit(&ring);
-  if (auto* sqe2 = io_uring_get_sqe(&ring))
-  {
-    io_uring_sqe_set_data(sqe2, nullptr);
-    return sqe2;
-  }
-  io_uring_submit_and_wait(&ring, 1);
-  auto* sqe = io_uring_get_sqe(&ring);
-  io_uring_sqe_set_data(sqe, nullptr);
-  return sqe;
-}

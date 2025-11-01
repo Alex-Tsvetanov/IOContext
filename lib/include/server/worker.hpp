@@ -38,6 +38,7 @@ public:
 
   Server* server() const { return owner; }
 
+#ifdef __LINUX
   void post_accept();
   void post_recv(PerClientStorage* c);
   void post_send(PerClientStorage* c);
@@ -51,13 +52,15 @@ public:
   void handle_close(io_uring_cqe*, EventData*);
 
   void handle_internal_event(EventData*);
-
+#endif
   fd_t listen_fd_;
   WorkerConfig cfg_;
   ConnTable table_;
   Server* owner{nullptr};
 #ifdef WIN32
   HANDLE iocp_;
+#elif __APPLE__
+  int kqueue_fd_{-1};
 #else
   io_uring ring_{};
   int ring_fd_{-1};

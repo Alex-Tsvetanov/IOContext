@@ -1,10 +1,13 @@
 #pragma once
 
+#ifdef BOOST_STACKTRACE_USE_ADDR2LINE
 #include <boost/stacktrace.hpp>
+#endif
 #include <iostream>
 #include <mutex>
 #include <ostream>
 #include <unordered_map>
+
 #include <thread>
 #include <sstream>
 
@@ -61,10 +64,12 @@ namespace ts_std
       const auto tid = std::this_thread::get_id();
       auto& ss = thread_logs_[tid];
 
+#ifdef BOOST_STACKTRACE_USE_ADDR2LINE
       if (with_stacktrace)
       {
         out << "[Thread " << tid << "] " << boost::stacktrace::stacktrace();
       }
+#endif
       out << "\n[Thread " << tid << "] " << ss.str() << std::endl;
 
       // Clear the per-thread buffer so we don't reprint old content

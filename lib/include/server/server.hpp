@@ -1,11 +1,20 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <iostream>
 #include "common/socket.hpp"
 #include "worker.hpp"
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#ifdef __APPLE__
+#include <sys/socket.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#endif
+#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+  #include <unistd.h>   // close, read, write, etc.
+#endif
 
 struct ServerConfig
 {
@@ -57,6 +66,10 @@ public:
     for (auto& t : threads_)
     {
       t.join();
+    }
+    for (auto fd : listeners_)
+    {
+      close(fd);
     }
   }
 
