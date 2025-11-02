@@ -3,7 +3,7 @@ target_include_directories(owned_buffer PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED)
 
 add_library(processing_machine STATIC src/common/processing_machine.cpp)
 target_include_directories(processing_machine PUBLIC
@@ -13,7 +13,9 @@ target_include_directories(processing_machine PUBLIC
 add_library(iocontext STATIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common/per_client_storage.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common/socket.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/server/server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/server/linux/worker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/server/linux/client_workflow.cpp
 )
 
 target_link_libraries(iocontext PUBLIC processing_machine)
@@ -44,5 +46,5 @@ else() # Linux
   else()
     message(FATAL_ERROR "liburing not found. Please install liburing.")
   endif()
-  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY} Boost::system)
+  target_link_libraries(iocontext PRIVATE ${LIBURING_LIBRARY})
 endif()

@@ -1,4 +1,6 @@
 #include "common/request_processing.hpp"
+#include "server/client_workflow.hpp"
+#include "server/server.hpp"
 #include <cstddef>
 #include <cstring>
 #include <iostream>
@@ -13,6 +15,7 @@
 #include "common/workflow.hpp"
 #include "server/worker.hpp"
 
+#define DEBUG
 #ifdef DEBUG
 #include "common/debug_log.hpp"
 #endif
@@ -84,13 +87,9 @@ void Worker::post_accept()
 
   auto* sqe = new_event_for_posting();
 
-  EventData* ev = new EventData;
-  ev->fd = listen_fd_;
-  ev->op = Workflow::Accept;
-  ev->hold = nullptr;
-
+  // For accept, we use a special marker value to distinguish it
   io_uring_prep_accept(sqe, listen_fd_, nullptr, nullptr, SOCK_NONBLOCK);
-  io_uring_sqe_set_data(sqe, ev);
+  io_uring_sqe_set_data(sqe, nullptr);
 
   if (use_ms_accept_)
   {
@@ -98,9 +97,10 @@ void Worker::post_accept()
     ms_accept_armed_ = true;
   }
   need_submit_++;
+  io_uring_submit(&ring_);
 }
 
-void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
+void Worker::handle_accept(io_uring_cqe* cqe)
 {
   if (cqe->res <= 0)
   {
@@ -119,7 +119,10 @@ void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
   c->keepalive_limit = cfg_.max_keepalive_requests;
   c->owner = this;
 
-  post_recv(c);
+  ts_std::cout << "Accepted new connection: fd=" << cfd << std::flush;
+
+  // Start the client workflow coroutine on the server's coroutine pool
+  owner->get_coro_pool().spawn(client_workflow_coro(this, c));
 
   if (use_ms_accept_)
   {
@@ -138,26 +141,30 @@ void Worker::handle_accept(io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
   }
 }
 
-void Worker::post_recv(PerClientStorage* c)
+void Worker::post_recv(PerClientStorage* c, char* buffer, size_t buflen, void* coro_addr)
 {
   auto* sqe = new_event_for_posting();
 
-  std::shared_ptr<std::vector<char>> newbuf = std::make_shared<std::vector<char>>(Worker::BUF_SZ);
-
-  EventData* ev = new EventData;
-  ev->fd = c->fd;
-  ev->op = Workflow::Recv;
-  ev->hold = newbuf;
-
-  io_uring_prep_recv(sqe, c->fd, newbuf->data(), newbuf->size(), 0);
-  io_uring_sqe_set_data(sqe, ev);
+  io_uring_prep_recv(sqe, c->fd, buffer, buflen, 0);
+  io_uring_sqe_set_data(sqe, coro_addr);
 
   need_submit_++;
+  io_uring_submit(&ring_);
+  ts_std::cout << "[Coroutine " << coro_addr << "] Posted recv for fd=" << c->fd << std::flush;
 }
 
-void Worker::handle_recv(io_uring_cqe* cqe, EventData* data)
+void Worker::handle_recv(io_uring_cqe* cqe, void* user_data)
 {
-  auto* c = table_.get(data->fd);
+  if (!user_data)
+  {
+    return;
+  }
+
+  // user_data is the coroutine handle address
+  auto handle = std::coroutine_handle<Task::promise_type>::from_address(user_data);
+  auto& promise = handle.promise();
+
+  auto* c = table_.get(promise.client_fd);
   if (!c)
   {
     return;
@@ -166,130 +173,83 @@ void Worker::handle_recv(io_uring_cqe* cqe, EventData* data)
   if (cqe->res <= 0)
   {
     c->closing = true;
+    promise.io_result = cqe->res; // Store error code
     if (cqe->res == -EBADF)
     {
-      table_.erase(data->fd);
+      table_.erase(promise.client_fd);
       return;
     }
-    post_close(data->fd);
+    // Still signal the coroutine so it can clean up
+    owner->get_coro_pool().signal_ready(handle);
     return;
   }
 
 #ifdef DEBUG
-  ts_std::cout << "Workflow::Recv completion: fd=" << data->fd << ", res=" << cqe->res
-               << ", data ptr=" << data->hold.get() << " " << data->hold.use_count() << std::flush;
-#endif // DEBUG
+  ts_std::cout << "Recv completion: fd=" << promise.client_fd << ", res=" << cqe->res << std::flush;
+#endif
 
-  std::shared_ptr<std::vector<char>> hold = std::static_pointer_cast<std::vector<char>>(data->hold);
-  hold->resize(cqe->res);
-#ifdef DEBUG
-  ts_std::cout << "Data received at: " << hold.get() << " " << hold.use_count();
-  ts_std::cout << "\nData received:\n" << std::string_view(hold->data(), hold->size()) << std::flush;
-#endif // DEBUG
-  c->completed_recv_buffs.push(hold);
-  post_internal_event(c, Workflow::Parse);
-  post_recv(c);
+  // Store the number of bytes received
+  promise.io_result = cqe->res;
+
+  // Signal the coroutine that recv is complete
+  // The coroutine's buffer now contains the data
+  owner->get_coro_pool().signal_ready(handle);
 }
 
-void Worker::post_send(PerClientStorage* c)
+void Worker::post_send(PerClientStorage* c, const struct msghdr* msg, void* coro_addr)
 {
-  if (c->send_inflight || c->requests_ready.empty())
+  auto* sqe = new_event_for_posting();
+
+  io_uring_prep_sendmsg(sqe, c->fd, msg, MSG_NOSIGNAL);
+  io_uring_sqe_set_data(sqe, coro_addr);
+
+  need_submit_++;
+  io_uring_submit(&ring_);
+}
+
+void Worker::handle_send(io_uring_cqe* cqe, void* user_data)
+{
+  if (!user_data)
   {
     return;
   }
 
-  c->send_inflight = true;
-  io_uring_sqe* sqe;
-  for (const auto& req : c->requests_ready)
-  {
-    sqe = new_event_for_posting();
-    EventData* ev = new EventData;
-    ev->fd = c->fd;
-    ev->op = Workflow::Send;
-    ev->hold = req;
-    io_uring_prep_sendmsg(sqe, c->fd, &req->batched_send_data.msg, MSG_NOSIGNAL);
-    io_uring_sqe_set_data(sqe, ev);
-    need_submit_++;
-  }
-  c->requests_ready.clear();
-}
+  // user_data is the coroutine handle address
+  auto handle = std::coroutine_handle<Task::promise_type>::from_address(user_data);
+  auto& promise = handle.promise();
 
-void Worker::handle_send(io_uring_cqe* cqe, EventData* data)
-{
-  auto* c = table_.get(data->fd);
+  auto* c = table_.get(promise.client_fd);
   if (!c)
   {
     return;
   }
 
-  std::shared_ptr<RequestProcessing> req = std::static_pointer_cast<RequestProcessing>(data->hold);
-
   if (cqe->res < 0)
   {
+    promise.io_result = cqe->res; // Store error code
     if (cqe->res == -EAGAIN || cqe->res == -EWOULDBLOCK)
     {
-      c->requests_ready.insert(req);
-      post_send(c);
+      // Will retry in coroutine
+      owner->get_coro_pool().signal_ready(handle);
       return;
     }
     c->closing = true;
-    post_close(data->fd);
+    owner->get_coro_pool().signal_ready(handle);
     return;
   }
 
-  size_t sent = static_cast<size_t>(cqe->res);
+#ifdef DEBUG
+  ts_std::cout << "Send completion: fd=" << promise.client_fd << ", res=" << cqe->res << std::flush;
+#endif
 
-  // total bytes in this batch
-  size_t total = 0;
-  for (size_t i = 0; i < req->batched_send_data.msg.msg_iovlen; ++i)
-  {
-    total += req->batched_send_data.msg.msg_iov[i].iov_len;
-  }
+  // Store the number of bytes sent
+  promise.io_result = cqe->res;
 
-  if (sent < total)
-  {
-    // advance iovecs by 'sent'
-    size_t off = sent;
-    int i = 0;
-    auto iov = req->batched_send_data.iov;
-    int cnt = req->batched_send_data.msg.msg_iovlen;
-
-    while (i < cnt && off >= iov[i].iov_len)
-    {
-      off -= iov[i].iov_len;
-      ++i;
-    }
-
-    if (i < cnt)
-    {
-      // trim first unsent iovec
-      iov[i].iov_base = static_cast<char*>(iov[i].iov_base) + off;
-      iov[i].iov_len -= off;
-
-      // point msg to the remaining tail
-      req->batched_send_data.msg.msg_iov = &iov[i];
-      req->batched_send_data.msg.msg_iovlen = cnt - i;
-
-      post_send(c);
-      return;
-    }
-  }
-
-  // Full batch sent
-  c->send_inflight = false;
-
-  if (c->on_send_completed())
-  {
-    c->closing = true;
-    post_close(data->fd);
-  }
-  else
-  {
-    post_send(c); // continue draining
-  }
+  // Signal the coroutine with send result
+  owner->get_coro_pool().signal_ready(handle);
 }
 
-void Worker::post_close(fd_t fd)
+void Worker::post_close(fd_t fd, void* coro_addr)
 {
   auto* c = table_.get(fd);
   if (!c)
@@ -303,52 +263,21 @@ void Worker::post_close(fd_t fd)
 
   {
     auto* sqe = new_event_for_posting();
-    EventData* ev = new EventData;
-    ev->fd = fd;
-    ev->op = Workflow::Cancelling;
-    ev->hold = nullptr;
-
     io_uring_prep_cancel_fd(sqe, fd, IORING_ASYNC_CANCEL_ALL);
-    io_uring_sqe_set_data(sqe, ev);
+    io_uring_sqe_set_data(sqe, reinterpret_cast<void*>(-1));
   }
 
   {
     auto* sqe = new_event_for_posting();
-    EventData* ev = new EventData;
-    ev->fd = fd;
-    ev->op = Workflow::Closed;
-    ev->hold = nullptr;
-
     io_uring_prep_close(sqe, fd);
     io_uring_sqe_set_flags(sqe, IOSQE_IO_HARDLINK);
-    io_uring_sqe_set_data(sqe, ev);
+    io_uring_sqe_set_data(sqe, coro_addr);
   }
 }
 
-void Worker::handle_close([[maybe_unused]] io_uring_cqe* cqe, [[maybe_unused]] EventData* data)
-{}
-
-void Worker::post_internal_event(PerClientStorage* c, Workflow wf)
+void Worker::handle_close([[maybe_unused]] io_uring_cqe* cqe, [[maybe_unused]] void* user_data)
 {
-  auto* sqe = new_event_for_posting();
-
-  EventData* ev = new EventData;
-  ev->fd = c->fd;
-  ev->op = wf;
-  ev->hold = nullptr;
-
-  io_uring_prep_nop(sqe);
-  io_uring_sqe_set_data(sqe, ev);
-}
-
-void Worker::handle_internal_event(EventData* data)
-{
-  auto* c = table_.get(data->fd);
-  if (!c)
-  {
-    return;
-  }
-  c->handle(data->op);
+  // Nothing to do for close completions
 }
 
 void Worker::run()
@@ -377,75 +306,34 @@ void Worker::run()
     for (unsigned i = 0; i < n; ++i)
     {
       io_uring_cqe* cqe = cqes[i];
-      EventData* data = reinterpret_cast<EventData*>(io_uring_cqe_get_data(cqe));
+      void* coro_addr = io_uring_cqe_get_data(cqe);
+
 #ifdef DEBUG
-      ts_std::cout << "\nCompletion: fd=" << data->fd << ", res=" << cqe->res << ", op=" << static_cast<int>(data->op)
-                   << ", data ptr=" << data->hold.get() << " " << (data->hold ? data->hold.use_count() : 0)
-                   << std::flush;
-#endif // DEBUG
-      switch (data->op)
+      ts_std::cout << "Completion: coro_addr=" << coro_addr << ", res=" << cqe->res << std::flush;
+#endif
+
+      // Check if this is an accept operation (coro_addr == listen_fd)
+      if (coro_addr == nullptr)
       {
-      case Workflow::Accept:
-        handle_accept(cqe, data);
-        break;
-
-      case Workflow::Recv:
-        handle_recv(cqe, data);
-        break;
-
-      case Workflow::Send:
-        handle_send(cqe, data);
-        break;
-
-      case Workflow::Parse:
-      case Workflow::FindHandler:
-      case Workflow::GenerateResponse:
-        handle_internal_event(data);
-        break;
-
-      case Workflow::RequestFlush: {
-        auto* c = table_.get(data->fd);
-        if (!c)
-        {
-          break;
-        }
-        // A send is about to be completed and it would fire the next batch of data to send
-        if (c->send_inflight)
-        {
-          break;
-        }
-
-        post_send(c);
+        handle_accept(cqe);
       }
-      break;
+      else if (coro_addr == reinterpret_cast<void*>(-1))
+      {
+        // noop for cancel completion
+      }
+      else
+      {
+        // This is a coroutine handle address (recv or send)
+        // We can distinguish by checking the promise's state or just handle both
+        // For now, we'll call a generic handler that checks the operation
+        auto handle = std::coroutine_handle<Task::promise_type>::from_address(coro_addr);
 
-      case Workflow::RequestClose:
-        handle_close(cqe, data);
-        break;
+        // The coroutine will know what operation it was waiting for
+        // based on its own state. Just signal it.
+        owner->get_coro_pool().signal_ready(handle);
+      }
 
-      case Workflow::Cancelling:
-        // no-op, just a barrier
-        break;
-
-      case Workflow::Closed:
-        handle_close(cqe, data);
-        break;
-      } // switch
       io_uring_cqe_seen(&ring_, cqe);
-      switch (data->op)
-      {
-      case Workflow::Accept: {
-        if (!use_ms_accept_)
-        {
-          delete data;
-        }
-        break;
-      }
-      default: {
-        delete data;
-        break;
-      }
-      }
     }
 
     if (need_submit_)

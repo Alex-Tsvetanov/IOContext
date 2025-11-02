@@ -4,9 +4,11 @@
 #include "common/request_processing.hpp"
 #include "socket.hpp"
 #include "workflow.hpp"
+#include "coroutine_thread_pool.hpp"
 #include <memory>
 #include <queue>
 #include <set>
+#include <optional>
 
 class Worker;
 
@@ -17,25 +19,13 @@ public:
 
   void reset();
 
-  void post(Workflow step);
-
-  void handle(Workflow step);
-
-private:
-  bool on_send_completed();
-
-  void parse_step();
-
-  void find_handler();
-
-  void generate_response();
-
   fd_t fd{-1};
   uint32_t served{0};
   bool closing{false};
 
   friend struct ConnTable;
   friend class Worker;
+  friend Task client_workflow_coro(Worker*, PerClientStorage*);
   Worker* owner{nullptr};
 
   // policy
@@ -56,6 +46,9 @@ private:
   // TX
   std::set<std::shared_ptr<RequestProcessing>> requests_ready;
   bool send_inflight{false};
+
+  // Coroutine workflow handle
+  std::optional<std::coroutine_handle<Task::promise_type>> coro_handle;
 };
 
 #endif // PER_CLIENT_STORAGE_H

@@ -1,17 +1,13 @@
-#pragma once
-#include "common/debug_log.hpp"
 #include <coroutine>
 #include <condition_variable>
 #include <atomic>
+#include <deque>
 #include <exception>
-#include <list>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <thread>
 #include <utility>
 #include <vector>
-#include <queue>
 
 struct Task;
 
@@ -21,9 +17,6 @@ public:
   explicit ThreadPool(std::size_t threads = std::thread::hardware_concurrency());
   void spawn(Task&& t);
   void wait_idle();
-
-  // Forward-declared, defined after Task::promise_type is complete
-  template <typename PromiseType> void signal_ready(std::coroutine_handle<PromiseType> h);
 
 private:
   friend struct Task;
@@ -38,17 +31,11 @@ struct Task
 {
   struct promise_type
   {
-    bool condition;
     std::weak_ptr<ThreadPool::ActualThreadPool> pool; // set by ThreadPool::spawn
-    std::optional<std::list<std::coroutine_handle<promise_type>>::iterator>
-      waiting_iterator; // iterator in waiting list
-    int client_fd{-1};  // Client file descriptor for I/O completions
-    int io_result{0};   // Result from last I/O operation (bytes read/written or error)
-
     Task get_return_object() noexcept;
     std::suspend_always initial_suspend() noexcept { return {}; } // start suspended
     std::suspend_always final_suspend() noexcept { return {}; }   // worker will destroy
-    std::suspend_always yield_value(bool cond) noexcept;
+    std::suspend_always yield_value(int) noexcept;
     void return_void() noexcept {}
     void unhandled_exception() { std::terminate(); }
   };
@@ -146,17 +133,27 @@ struct ThreadPool::ActualThreadPool: public std::enable_shared_from_this<ThreadP
     for (auto& t : workers_)
       t.join();
 
-    // Drain any left-over (shouldn't happen if wait_idle() was used)
+    // Drain any left-over (shouldn’t happen if wait_idle() was used)
+    while (true)
     {
-      std::lock_guard lk(m_);
-      while (!ready_queue_.empty())
+      coro_handle h;
       {
-        auto h = ready_queue_.front();
-        ready_queue_.pop();
-        h.destroy();
+        std::lock_guard lk(m_);
+        if (q_.empty())
+          break;
+        h = q_.front();
+        q_.pop_front();
       }
-      for (auto h : waiting_list_)
-        h.destroy();
+      if (h)
+      {
+        // If something remained, destroy safely
+        if (!h.done())
+        {
+          h.resume();
+        }
+        if (h && h.done())
+          h.destroy();
+      }
     }
   }
 
@@ -177,10 +174,8 @@ struct ThreadPool::ActualThreadPool: public std::enable_shared_from_this<ThreadP
       {
         auto& prom = h.promise();
         prom.pool = this->weak_from_this();
-        prom.condition = true; // initially ready
       }
-      ts_std::cout << "Spawning new task, pending=" << pending_.load() << std::flush;
-      ready_queue_.push(h);
+      q_.push_back(h);
     }
     cv_.notify_one();
   }
@@ -189,29 +184,7 @@ struct ThreadPool::ActualThreadPool: public std::enable_shared_from_this<ThreadP
   void wait_idle()
   {
     std::unique_lock lk(m_);
-    cv_idle_.wait(lk, [this] { return pending_ == 0 && ready_queue_.empty() && waiting_list_.empty(); });
-  }
-
-  // Signal that a coroutine waiting for I/O is now ready to resume
-  void signal_ready(coro_handle h)
-  {
-    if (!h)
-      return;
-
-    std::lock_guard lk(m_);
-    auto& prom = h.promise();
-
-    // Remove from waiting list if present
-    if (prom.waiting_iterator.has_value())
-    {
-      waiting_list_.erase(prom.waiting_iterator.value());
-      prom.waiting_iterator.reset();
-    }
-
-    // Mark as ready and add to ready queue
-    prom.condition = true;
-    ready_queue_.push(h);
-    cv_.notify_one();
+    cv_idle_.wait(lk, [this] { return pending_ == 0 && q_.empty(); });
   }
 
 private:
@@ -221,25 +194,9 @@ private:
   {
     // NOTE: await_suspend can be called concurrently; guard push with mutex.
     std::lock_guard lk(m_);
-    auto& prom = h.promise();
-
-    if (prom.condition)
-    {
-      // Ready to run: add to ready queue
-      ready_queue_.push(h);
-      cv_.notify_one();
-    }
-    else
-    {
-      // Waiting for I/O: add to waiting list and store iterator
-      waiting_list_.push_back(h);
-      auto it = waiting_list_.end();
-      --it; // point to the element we just added
-      prom.waiting_iterator = it;
-    }
+    q_.push_back(h);
+    cv_.notify_one();
   }
-
-  bool has_pending_tasks() const { return pending_.load(std::memory_order_relaxed) > 0; }
 
   void worker_loop()
   {
@@ -248,18 +205,11 @@ private:
       coro_handle h;
       {
         std::unique_lock lk(m_);
-
-        // Wait until stop_ OR there's a task in the ready queue
-        cv_.wait(lk, [this] { return stop_ || !ready_queue_.empty(); });
-
-        if (stop_ && ready_queue_.empty())
+        cv_.wait(lk, [this] { return stop_ || !q_.empty(); });
+        if (stop_ && q_.empty())
           break;
-
-        if (!ready_queue_.empty())
-        {
-          h = ready_queue_.front();
-          ready_queue_.pop();
-        }
+        h = q_.front();
+        q_.pop_front();
       }
 
       if (h)
@@ -269,17 +219,18 @@ private:
         if (h.done())
         {
           // destroy & mark completion
+          [[maybe_unused]] auto& promise = static_cast<Task::promise_type&>(h.promise());
           h.destroy();
 
-          // pending_ corresponds to "live tasks"
+          // pending_ corresponds to “live tasks”
           // Only decrement on true completion (final_suspend observed).
           std::lock_guard lk(m_);
-          if (--pending_ == 0 && ready_queue_.empty() && waiting_list_.empty())
+          if (--pending_ == 0 && q_.empty())
           {
             cv_idle_.notify_all();
           }
         }
-        // else: coroutine suspended; it re-enqueued itself
+        // else: coroutine suspended; it re-enqueued itself via yield_once()
       }
     }
   }
@@ -288,17 +239,15 @@ private:
   mutable std::mutex m_;
   std::condition_variable cv_;
   std::condition_variable cv_idle_;
-  std::queue<coro_handle> ready_queue_; // coroutines ready to resume
-  std::list<coro_handle> waiting_list_; // coroutines waiting for I/O
+  std::deque<coro_handle> q_;
   std::vector<std::thread> workers_;
 
   bool stop_;
   std::atomic<std::size_t> pending_;
 };
 
-inline std::suspend_always Task::promise_type::yield_value(bool cond) noexcept
+std::suspend_always Task::promise_type::yield_value(int) noexcept
 {
-  this->condition = cond;
   // co_yield: just yield back to the pool once
   if (auto sp = pool.lock())
   {
@@ -307,21 +256,55 @@ inline std::suspend_always Task::promise_type::yield_value(bool cond) noexcept
   return {};
 }
 
-inline ThreadPool::ThreadPool(std::size_t threads)
+ThreadPool::ThreadPool(std::size_t threads)
   : actual_pool_(std::make_shared<ActualThreadPool>(threads))
 {}
 
-inline void ThreadPool::spawn(Task&& t)
+void ThreadPool::spawn(Task&& t)
 {
   actual_pool_->spawn(std::move(t));
 }
 
-inline void ThreadPool::wait_idle()
+void ThreadPool::wait_idle()
 {
   actual_pool_->wait_idle();
 }
 
-template <typename PromiseType> inline void ThreadPool::signal_ready(std::coroutine_handle<PromiseType> h)
+//--------------------------------------------------------------
+// Example usage (put this in your .cpp to test)
+//--------------------------------------------------------------
+#include <iostream>
+#include <sstream>
+
+Task stepper(int id, int steps, int work_ms)
 {
-  actual_pool_->signal_ready(h);
+  // On spawn(), we start suspended and only run when a worker resumes us.
+  for (int i = 0; i < steps; ++i)
+  {
+    auto handle = co_await current_handle();
+    void* addr = handle.address();
+    // "Do work"
+    std::this_thread::sleep_for(std::chrono::milliseconds(work_ms));
+    std::stringstream ss;
+    ss << "[task " << id << "] step " << (i + 1) << "/" << steps << " coroutine address: " << addr << "\n";
+    std::cout << ss.str();
+    // Yield back to the pool so other work can run; we’ll be re-scheduled later
+    co_yield {};
+  }
+}
+
+int main()
+{
+  ThreadPool pool(4);
+
+  // Spawn a bunch of coroutine tasks
+  for (int i = 0; i < 80; ++i)
+  {
+    pool.spawn(stepper(i, /*steps=*/5, /*work_ms=*/30));
+  }
+
+  // Block until all tasks finish
+  pool.wait_idle();
+
+  std::cout << "All tasks done.\n";
 }

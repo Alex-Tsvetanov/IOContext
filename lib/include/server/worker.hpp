@@ -14,13 +14,6 @@ struct WorkerConfig
   uint16_t max_keepalive_requests{65000};
 };
 
-struct EventData
-{
-  fd_t fd;
-  Workflow op;
-  std::shared_ptr<void> hold;
-};
-
 class Worker
 {
 public:
@@ -39,18 +32,14 @@ public:
   Server* server() const { return owner; }
 
   void post_accept();
-  void post_recv(PerClientStorage* c);
-  void post_send(PerClientStorage* c);
-  void post_close(fd_t fd);
+  void post_recv(PerClientStorage* c, char* buffer, size_t buflen, void* coro_addr);
+  void post_send(PerClientStorage* c, const struct msghdr* msg, void* coro_addr);
+  void post_close(fd_t fd, void* coro_addr);
 
-  void post_internal_event(PerClientStorage*, Workflow);
-
-  void handle_accept(io_uring_cqe*, EventData*);
-  void handle_recv(io_uring_cqe*, EventData*);
-  void handle_send(io_uring_cqe*, EventData*);
-  void handle_close(io_uring_cqe*, EventData*);
-
-  void handle_internal_event(EventData*);
+  void handle_accept(io_uring_cqe*);
+  void handle_recv(io_uring_cqe*, void* coro_addr);
+  void handle_send(io_uring_cqe*, void* coro_addr);
+  void handle_close(io_uring_cqe*, void* coro_addr);
 
   fd_t listen_fd_;
   WorkerConfig cfg_;

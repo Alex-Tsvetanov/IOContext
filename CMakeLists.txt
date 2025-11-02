@@ -46,4 +46,6 @@ add_subdirectory(tests)
 
 add_subdirectory(competitors)
 
+add_subdirectory(playground)
+
 # add_subdirectory(bare_metal_implementations)
